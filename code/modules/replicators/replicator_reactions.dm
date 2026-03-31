@@ -36,7 +36,7 @@
 		ChangeTurf(/turf/simulated/floor/plating/airless/catwalk/forcefield)
 		return TRUE
 
-	if(broken)
+	if(broken || istype(src, /turf/simulated/floor/grid_floor))
 		break_tile_to_plating()
 		return TRUE
 
@@ -171,6 +171,11 @@
 	return -1
 
 
+/obj/structure/get_unit_disintegration_time()
+	. = ..()
+	if(contaminated)
+		. *= REPLICATOR_PUNISH_CONTAMINATION_MODIFIER
+
 /obj/structure/get_replicator_material_amount()
 	return w_class
 
@@ -299,6 +304,11 @@
 	return FALSE
 
 
+/obj/machinery/get_unit_disintegration_time()
+	. = ..()
+	if(contaminated)
+		. *= REPLICATOR_PUNISH_CONTAMINATION_MODIFIER
+
 /obj/machinery/get_replicator_material_amount()
 	return w_class
 
@@ -423,6 +433,11 @@
 /obj/machinery/swarm_powered/bluespace_catapult/get_replicator_material_amount()
 	return -1
 
+
+/obj/item/get_unit_disintegration_time()
+	. = ..()
+	if(contaminated)
+		. *= REPLICATOR_PUNISH_CONTAMINATION_MODIFIER
 
 /obj/item/get_replicator_material_amount()
 	return w_class

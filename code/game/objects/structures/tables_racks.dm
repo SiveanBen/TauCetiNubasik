@@ -12,7 +12,9 @@
  */
 /obj/structure/table
 	name = "table"
-	desc = "A square piece of metal standing on four metal legs. It can not move."
+	cases = list("стол", "стола", "столу", "стол", "столом", "столе")
+	desc = "Квадратный кусок металла, стоящий на четырех металлических ножках. Он не может двигаться."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/table.dmi'
 	icon_state = "box"
 	density = TRUE
@@ -24,6 +26,8 @@
 
 	max_integrity = 100
 	resistance_flags = CAN_BE_HIT
+
+	hit_particle_type = /particles/tool/digging/metal
 
 	var/parts = /obj/item/weapon/table_parts
 	var/flipped = 0
@@ -93,14 +97,14 @@
 	if(HULK in user.mutations)
 		user.do_attack_animation(src)
 		user.SetNextMove(CLICK_CD_MELEE)
-		user.say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
-		visible_message("<span class='danger'>[user] smashes the [src] apart!</span>")
+		user.say(pick(";РРРРРРАААРГХ!", ";ХHННННННННГГГГГГХ!", ";ГВААААААААРРРХХХ!", "ННННННННГГГГГГГГХХ!", ";АААААААРРГХ!" ))
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, NOMINATIVE_CASE)] на части!</span>")
 		deconstruct(TRUE)
 
 /obj/structure/table/attack_alien(mob/user)
 	user.do_attack_animation(src)
 	user.SetNextMove(CLICK_CD_MELEE)
-	visible_message("<span class='danger'>[user] slices [src] apart!</span>")
+	visible_message("<span class='danger'>[user] разрезает [CASE(src, ACCUSATIVE_CASE)] на части!</span>")
 	if(istype(src, /obj/structure/table/glass))
 		deconstruct(FALSE)
 	else
@@ -110,14 +114,14 @@
 	if(user.environment_smash)
 		..()
 		playsound(user, 'sound/effects/grillehit.ogg', VOL_EFFECTS_MASTER)
-		visible_message("<span class='danger'>[user] smashes [src] apart!</span>")
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, ACCUSATIVE_CASE)] на части!</span>")
 		deconstruct(TRUE)
 
 /obj/structure/table/attack_hand(mob/user)
 	if(HULK in user.mutations)
 		user.SetNextMove(CLICK_CD_MELEE)
-		visible_message("<span class='danger'>[user] smashes [src] apart!</span>")
-		user.say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, NOMINATIVE_CASE)] на части!</span>")
+		user.say(pick(";РРРРРРАААРГХ!", ";ХHННННННННГГГГГГХ!", ";ГВААААААААРРРХХХ!", "ННННННННГГГГГГГГХХ!", ";АААААААРРГХ!" ))
 		deconstruct(TRUE)
 
 /obj/structure/table/attack_tk() // no telehulk sorry
@@ -128,7 +132,9 @@
 		return (check_cover(mover,target))
 	if(istype(mover) && mover.checkpass(PASSTABLE))
 		return 1
-	if(iscarbon(mover) && mover.checkpass(PASSCRAWL))
+	// todo: we should not change mover properties here, this method is only for attempt to pass
+	// part of future mob layer / crawl refactoring
+	if(buckled_mob != mover && iscarbon(mover) && mover.checkpass(PASSCRAWL))
 		mover.layer = 2.7
 		return 1
 	if(istype(mover) && HAS_TRAIT(mover, TRAIT_ARIBORN))
@@ -170,7 +176,7 @@
 /obj/structure/table/CheckExit(atom/movable/O, target)
 	if(istype(O) && O.checkpass(PASSTABLE))
 		return 1
-	if(istype(O) && O.checkpass(PASSCRAWL))
+	if(buckled_mob != O && iscarbon(O) && O.checkpass(PASSCRAWL))
 		O.layer = 4.0
 		return 1
 	if (flipped)
@@ -187,7 +193,7 @@
 	spark_system.start()
 	playsound(src, 'sound/weapons/blade1.ogg', VOL_EFFECTS_MASTER)
 	playsound(src, pick(SOUNDIN_SPARKS), VOL_EFFECTS_MASTER)
-	visible_message("<span class='notice'>[src] was sliced apart by [user]!</span>", "<span class='notice'>You hear [src] coming apart.</span>")
+	visible_message("<span class='notice'>[CASE(src, NOMINATIVE_CASE)] был[VERB_RU(src)] разрезан[VERB_RU(src)] на части [user]!</span>", "<span class='notice'>Вы слышите, как [CASE(src, NOMINATIVE_CASE)] разваливается на части.</span>")
 	user.SetNextMove(CLICK_CD_MELEE)
 	deconstruct(TRUE)
 
@@ -198,7 +204,7 @@
 	spark_system.start()
 	playsound(src, 'sound/weapons/blade1.ogg', VOL_EFFECTS_MASTER)
 	playsound(src, pick(SOUNDIN_SPARKS), VOL_EFFECTS_MASTER)
-	to_chat(user, "<span class='notice'>You tried to slice through [src] but [I] is too weak.</span>")
+	to_chat(user, "<span class='notice'>Вы пытаетесь разрезать [CASE(src, ACCUSATIVE_CASE)], но [CASE(I, NOMINATIVE_CASE)] слишком слаб[VERB_RU(src)] для этого.</span>")
 	user.SetNextMove(CLICK_CD_MELEE)
 
 // React to tools attacking src.
@@ -206,8 +212,8 @@
 	if(iswrenching(I))
 		if(user.is_busy(src))
 			return FALSE
-		to_chat(user, "<span class='notice'>You are now disassembling \the [src].</span>")
-		if(I.use_tool(src, user, 50, volume = 50))
+		to_chat(user, "<span class='notice'>Вы начинаете разбирать [CASE(src, ACCUSATIVE_CASE)].</span>")
+		if(I.use_tool(src, user, 50, volume = 50, quality = QUALITY_WRENCHING))
 			deconstruct(TRUE)
 		return TRUE
 	return FALSE
@@ -270,10 +276,10 @@
 		return
 
 	if(!flip(get_cardinal_dir(usr,src)))
-		to_chat(usr, "<span class='notice'>It won't budge.</span>")
+		to_chat(usr, "<span class='notice'>Оно не сдвинется с места.</span>")
 		return
 
-	usr.visible_message("<span class='warning'>[usr] flips \the [src]!</span>")
+	usr.visible_message("<span class='warning'>[usr] переворачивает [CASE(src, ACCUSATIVE_CASE)]!</span>")
 
 	if(climbable)
 		structure_shaken()
@@ -308,7 +314,7 @@
 		return
 
 	if (!unflipping_check())
-		to_chat(usr, "<span class='notice'>It won't budge.</span>")
+		to_chat(usr, "<span class='notice'>Оно не сдвинется с места.</span>")
 		return
 	unflip()
 
@@ -360,14 +366,18 @@
  */
 /obj/structure/table/glass
 	name = "glass table"
-	desc = "Looks fragile. You should totally flip it. It is begging for it."
+	cases = list("стеклянный стол", "стеклянного стола", "стеклянному столу", "стеклянный стол", "стеклянным столом", "стеклянном столе")
+	desc = "Выглядит хрупким. Вас так и манит перевернуть его. Он так и ПРОСИТ СДЕЛАТЬ ЭТО!"
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/glass_table.dmi'
 	parts = /obj/item/weapon/table_parts/glass
 	max_integrity = 10
 
+	hit_particle_type = /particles/tool/digging/glass
+
 /obj/structure/table/glass/atom_init()
 	. = ..()
-	AddComponent(/datum/component/clickplace, , CALLBACK(src, .proc/slam))
+	AddComponent(/datum/component/clickplace, , CALLBACK(src, PROC_REF(slam)))
 
 /obj/structure/table/glass/flip(direction)
 	if( !straight_table_check(turn(direction,90)) || !straight_table_check(turn(direction,-90)) )
@@ -392,7 +402,7 @@
 	update_adjacent()
 
 	playsound(src, pick(SOUNDIN_SHATTER), VOL_EFFECTS_MASTER)
-	visible_message("<span class='warning'>[src] breaks!</span>", "<span class='danger'>You hear breaking glass.</span>")
+	visible_message("<span class='warning'>[CASE(src, NOMINATIVE_CASE)] сломал[VERB2_RU(src)]!</span>", "<span class='danger'>Вы слышите разбивающееся стекло.</span>")
 
 	var/T = get_turf(src)
 	new /obj/item/weapon/shard(T)
@@ -406,7 +416,7 @@
 /obj/structure/table/glass/on_climb(mob/living/user)
 	usr.forceMove(get_turf(src))
 	if(check_break(user))
-		usr.visible_message("<span class='warning'>[user] tries to climb onto \the [src], but breaks it!</span>")
+		usr.visible_message("<span class='warning'>[user] пытается забраться на [CASE(src, ACCUSATIVE_CASE)], но [THEY_RU(src)] ломается!</span>")
 	else
 		..()
 
@@ -432,10 +442,11 @@
 
 	victim.Stun(2)
 	victim.Weaken(5)
-	visible_message("<span class='danger'>[assailant] slams [victim]'s face against \the [src], breaking it!</span>")
+	visible_message("<span class='danger'>[assailant] разбивает лицо [victim] об [CASE(src, ACCUSATIVE_CASE)] и [THEY_RU(src)] ломается!</span>")
 	playsound(src, 'sound/weapons/tablehit1.ogg', VOL_EFFECTS_MASTER)
 
 	victim.log_combat(assailant, "face-slammed against [name]")
+	SEND_SIGNAL(assailant, COMSIG_HUMAN_HARMED_OTHER,victim)
 
 	if(prob(30) && ishuman(victim))
 		var/mob/living/carbon/human/H = victim
@@ -463,21 +474,29 @@
  */
 /obj/structure/table/woodentable
 	name = "wooden table"
-	desc = "Do not apply fire to this. Rumour says it burns easily."
+	cases = list("деревянный стол", "деревянного стола ", "деревянному столу", "деревянный стол", "деревянным столом", "деревянном столе")
+	desc = "Ходят слухи, что достаточно одного маленького огня и стол сгорит за секунды. Лучше не курить возле него."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/wooden_table.dmi'
 	parts = /obj/item/weapon/table_parts/wood
 	max_integrity = 50
 
+	hit_particle_type = /particles/tool/digging/wood
+
 /obj/structure/table/woodentable/poker //No specialties, Just a mapping object.
 	name = "gambling table"
-	desc = "A seedy table for seedy dealings in seedy places."
+	cases = list("игровой стол", "игрового стола", "игровому столу", "игровой стол", "игровым столом", "игровом столе")
+	desc = "Убогий стол для сомнительных сделок в убогих местах."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/poker_table.dmi'
 	parts = /obj/item/weapon/table_parts/wood/poker
 	max_integrity  = 50
 
 /obj/structure/table/woodentable/fancy
 	name = "fancy table"
-	desc = "A standard metal table frame covered with an amazingly fancy, patterned cloth."
+	cases = list("украшенный стол", "украшенного стола", "украшенному столу", "украшенный стол", "украшенным столом", "украшенном столе")
+	desc = "Стандартный металлический каркас стола, обтянутый изумительно вычурной тканью с рисунком."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/fancy_table.dmi'
 	canSmoothWith = list(/obj/structure/table/woodentable/fancy, /obj/structure/table/woodentable/fancy/black)
 	parts = /obj/item/weapon/table_parts/wood/fancy
@@ -492,7 +511,9 @@
  */
 /obj/structure/table/reinforced
 	name = "reinforced table"
-	desc = "A version of the four legged table. It is stronger."
+	cases = list("укрепленный стол", "укрепленного стола", "укрепленному столу", "укрепленной стол", "укрепленным столом", "укрепленном столе")
+	desc = "Вариант стола на четырех ножках. Он прочнее, чем ты."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/reinforced_table.dmi'
 	max_integrity = 200
 	parts = /obj/item/weapon/table_parts/reinforced
@@ -530,14 +551,14 @@
 		var/obj/item/weapon/weldingtool/WT = I
 		if(WT.use(0, user))
 			if(status == 2)
-				to_chat(user, "<span class='notice'>You are now strengthening \the [src].</span>")
-				if(WT.use_tool(src, user, 50, volume = 50))
-					to_chat(user, "<span class='notice'>You have weakened \the [src].</span>")
+				to_chat(user, "<span class='notice'>Вы начинаете укреплять [CASE(src, ACCUSATIVE_CASE)].</span>")
+				if(WT.use_tool(src, user, 50, volume = 50, quality = QUALITY_WELDING))
+					to_chat(user, "<span class='notice'>Вы ослабляете укрепления [CASE(src, GENITIVE_CASE)].</span>")
 					src.status = 1
 			else
-				to_chat(user, "<span class='notice'>You are now strengthening \the [src].</span>")
-				if(WT.use_tool(src, user, 50, volume = 50))
-					to_chat(user, "<span class='notice'>You have strengthened \the [src].</span>")
+				to_chat(user, "<span class='notice'>Вы начинаете укреплять [CASE(src, ACCUSATIVE_CASE)].</span>")
+				if(WT.use_tool(src, user, 50, volume = 50, quality = QUALITY_WELDING))
+					to_chat(user, "<span class='notice'>Вы ослабляете укрепления [CASE(src, GENITIVE_CASE)].</span>")
 					src.status = 2
 			return TRUE
 		return FALSE
@@ -545,8 +566,8 @@
 	else if(status != 2 && iswrenching(I))
 		if(user.is_busy(src))
 			return FALSE
-		to_chat(user, "<span class='notice'>You are now disassembling \the [src].</span>")
-		if(I.use_tool(src, user, 50, volume = 50))
+		to_chat(user, "<span class='notice'>Вы разбираете [CASE(src, ACCUSATIVE_CASE)].</span>")
+		if(I.use_tool(src, user, 50, volume = 50, quality = QUALITY_WRENCHING))
 			deconstruct(TRUE)
 		return TRUE
 
@@ -575,13 +596,17 @@
 	. = ..()
 
 	table_attached_to = Table
-	RegisterSignal(table_attached_to, list(COMSIG_PARENT_QDELETING), .proc/on_table_destroy)
+	RegisterSignal(table_attached_to, list(COMSIG_PARENT_QDELETING), PROC_REF(destroy_lot_holder))
+	RegisterSignal(held_Item, list(COMSIG_PARENT_QDELETING), PROC_REF(destroy_lot_holder))
 
 	held_Item = Item
 	Item.forceMove(src)
 
 	add_overlay(Item)
 	name = Item.name
+	var/list/pricetag = Item.price_tag
+	if(pricetag)
+		name = "[name] ([pricetag["price"]]$)"
 
 	var/old_invisibility = invisibility
 	invisibility = INVISIBILITY_ABSTRACT
@@ -593,14 +618,42 @@
 /obj/lot_holder/Destroy()
 	held_Item.forceMove(table_attached_to.loc)
 	held_Item = null
+
+	for(var/atom/movable/AM in contents)
+		AM.forceMove(table_attached_to.loc)
 	table_attached_to = null
+
 	return ..()
 
-/obj/lot_holder/proc/on_table_destroy()
+/obj/lot_holder/proc/destroy_lot_holder()
 	qdel(src)
 
+/obj/lot_holder/container_resist()
+	qdel(src)
+
+/obj/lot_holder/attack_hand(mob/user)
+	if(ishuman(user) && istype(held_Item, /obj/item/smallDelivery))
+		var/mob/living/carbon/human/H = user
+		var/obj/item/weapon/card/id/ID = H.get_idcard()
+		if(ID && (global.access_cargo in ID.GetAccess()))
+			var/obj/item/I = held_Item
+			qdel(src)
+			user.put_in_hands(I)
+			return
+	return ..()
+
 /obj/lot_holder/attackby(obj/item/weapon/W, mob/user, params)
-	if(istype(W, /obj/item/weapon/card/id))
+	if(istype(held_Item, /obj/item/smallDelivery))
+		return
+
+	if(W.price_tag)
+		var/list/item_click_params = params2list(params)
+		if(!item_click_params || !item_click_params[ICON_X] || !item_click_params[ICON_Y])
+			return
+		item_click_params[ICON_X] = (pixel_x + world.icon_size * 0.5 + rand(-2, 2))
+		item_click_params[ICON_Y] = (pixel_y + world.icon_size * 0.5 + rand(-2, 2))
+		table_attached_to.attackby(W, user, list2params(item_click_params))
+	else if(istype(W, /obj/item/weapon/card/id))
 		table_attached_to.visible_message("<span class='info'>[user] прикладывает карту к столу.</span>")
 		var/obj/item/weapon/card/id/Card = W
 		scan_card(Card, user)
@@ -608,37 +661,34 @@
 		table_attached_to.visible_message("<span class='info'>[user] прикладывает КПК к столу.</span>")
 		var/obj/item/weapon/card/id/Card = W.GetID()
 		scan_card(Card, user)
+	else if(istype(W, /obj/item/weapon/ewallet))
+		var/obj/item/weapon/ewallet/EW = W
+		table_attached_to.visible_message("<span class='info'>[user] прикладывает чип к столу.</span>")
+		scan_ewallet(EW, user)
 	else
 		return ..()
 
-/obj/lot_holder/proc/scan_card(obj/item/weapon/card/id/Card, mob/user)
-	var/datum/money_account/Buyer = get_account(Card.associated_account_number)
-	var/datum/money_account/Seller = get_account(held_Item.price_tag["account"])
 
+/obj/lot_holder/proc/pay_with_account(datum/money_account/Buyer, mob/user)
 	if(!Buyer)
 		return
 
-	var/attempt_pin = 0
-	if(Buyer.security_level > 0)
-		attempt_pin = input("Введите ПИН-код", "Прилавок") as num
-		if(isnull(attempt_pin))
-			to_chat(user, "[bicon(table_attached_to)]<span class='warning'>Неверный ПИН-код!</span>")
-			return
-		Buyer = attempt_account_access(Card.associated_account_number, attempt_pin, 2)
+	if(Buyer.suspended)
+		table_attached_to.visible_message("[bicon(table_attached_to)]<span class='warning'>Оплачивающий аккаунт заблокирован.</span>")
+		return
 
-		if(!Buyer)
-			to_chat(user, "[bicon(table_attached_to)]<span class='warning'>Неверный ПИН-код!</span>")
-			return
-
+	var/datum/money_account/Seller = get_account(held_Item.price_tag["account"])
 	var/cost = held_Item.price_tag["price"]
 
-	if(cost > 0 && Seller)
+	if(cost > 0 && Seller && Buyer != Seller)
 		if(Seller.suspended)
 			table_attached_to.visible_message("[bicon(table_attached_to)]<span class='warning'>Подключённый аккаунт заблокирован.</span>")
 			return
+
 		if(cost <= Buyer.money)
-			charge_to_account(Buyer.account_number, Buyer.owner_name, "Покупка [held_Item.name]", "Прилавок", -cost)
-			charge_to_account(Seller.account_number, Seller.owner_name, "Прибыль за продажу [held_Item.name]", "Прилавок", cost)
+			charge_to_account(Buyer.account_number, Seller.owner_name, "Покупка [held_Item.name]", "Прилавок", -cost)
+			charge_to_account(Seller.account_number, Buyer.owner_name, "Прибыль за продажу [held_Item.name]", "Прилавок", cost)
+
 		else
 			table_attached_to.visible_message("[bicon(table_attached_to)]<span class='warning'>Недостаточно средств!</span>")
 			return
@@ -646,9 +696,23 @@
 	held_Item.remove_price_tag()
 	qdel(src)
 
+/obj/lot_holder/proc/scan_card(obj/item/weapon/card/id/Card, mob/user)
+	var/datum/money_account/Buyer = attempt_account_access_with_user_input(Card.associated_account_number, ACCOUNT_SECURITY_LEVEL_MAXIMUM, user)
+	if(user.incapacitated() || !Adjacent(user))
+		return
+	if(!Buyer)
+		to_chat(user, "[bicon(table_attached_to)]<span class='warning'>Неверный ПИН-код!</span>")
+		return
+	pay_with_account(Buyer, user)
+
+/obj/lot_holder/proc/scan_ewallet(obj/item/weapon/ewallet/EW, mob/user)
+	pay_with_account(get_account(EW.account_number), user)
+
 /obj/structure/table/reinforced/stall
 	name = "stall table"
-	desc = "A market stall table equipped with magnetic grip."
+	cases = list("магнитный стол", "магнитного стола", "магнитному столу", "магнитный стол", "магнитным столом", "магнитном столе")
+	desc = "Стол, оснащенный магнитным захватом."
+	gender = MALE
 	icon = 'icons/obj/smooth_structures/stall_table.dmi'
 	max_integrity = 200
 	parts = /obj/item/weapon/table_parts/stall
@@ -657,10 +721,14 @@
 
 /obj/structure/table/reinforced/stall/atom_init()
 	. = ..()
-	AddComponent(/datum/component/clickplace, CALLBACK(src, .proc/try_magnet))
+	AddComponent(/datum/component/clickplace, CALLBACK(src, PROC_REF(try_magnet)))
 
 /obj/structure/table/reinforced/stall/proc/try_magnet(atom/A, obj/item/I, mob/user, params)
-	if(I.price_tag)
+	if(I.price_tag || istype(I, /obj/item/smallDelivery))
+		if(istype(I, /obj/item/smallDelivery))
+			var/obj/item/smallDelivery/package = I
+			if(!package.lot_lock_image)
+				return
 		magnet_item(I, params)
 
 /obj/structure/table/reinforced/stall/proc/magnet_item(obj/item/I, list/params)
@@ -687,11 +755,29 @@
 	LH.pixel_y = p_y
 
 /*
+ * reinforced glass table
+ */
+
+/obj/structure/table/rglass
+	name = "reinforced glass table"
+	cases = list("укрепленный стеклянный стол", "укрепленного стеклянного стола", "укрепленному стеклянному столу", "укрепленный стеклянный стол", "укрепленным стеклянным столом", "укрепленном стеклянном столе")
+	desc = "Укрепленная версия стеклянного стола."
+	gender = MALE
+	icon = 'icons/obj/smooth_structures/rglass.dmi'
+	max_integrity = 100
+	parts = /obj/item/weapon/table_parts/rglass
+	flipable = FALSE
+
+	hit_particle_type = /particles/tool/digging/glass
+
+/*
  * Racks
  */
 /obj/structure/rack // TODO subtype of table?
 	name = "rack"
-	desc = "Different from the Middle Ages version."
+	cases = list("стеллаж", "стеллажа", "стеллажу", "стеллаж", "стеллажом", "стеллаже")
+	desc = "Обычный железный стеллаж, который точно не использовали для пыток в средних веках."
+	gender = MALE
 	icon = 'icons/obj/objects.dmi'
 	icon_state = "rack"
 	density = TRUE
@@ -703,6 +789,8 @@
 
 	max_integrity = 20
 	resistance_flags = CAN_BE_HIT
+
+	hit_particle_type = /particles/tool/digging/metal
 
 /obj/structure/rack/atom_init()
 	. = ..()
@@ -740,7 +828,7 @@
 		can_cut = HAS_TRAIT(D, TRAIT_DOUBLE_WIELDED)
 
 	if(!can_cut)
-		return ..()
+		return
 
 	user.do_attack_animation(src)
 	user.SetNextMove(CLICK_CD_MELEE)
@@ -751,7 +839,7 @@
 
 	playsound(src, 'sound/weapons/blade1.ogg', VOL_EFFECTS_MASTER)
 	playsound(src, "sparks", VOL_EFFECTS_MASTER)
-	visible_message("<span class='notice'>[src] was sliced apart by [user]!</span>", "<span class='notice'> You hear [src] coming apart.</span>")
+	visible_message("<span class='notice'>[CASE(src, NOMINATIVE_CASE)] был[VERB_RU(src)] разрезан[VERB_RU(src)] на части [user]!</span>", "<span class='notice'>Вы слышите, как [CASE(src, NOMINATIVE_CASE)] разваливается на части.</span>")
 	deconstruct(TRUE)
 
 /obj/structure/rack/play_attack_sound(damage_amount, damage_type, damage_flag)
@@ -778,22 +866,22 @@
 	if(HULK in user.mutations)
 		user.SetNextMove(CLICK_CD_MELEE)
 		user.do_attack_animation(src)
-		visible_message("<span class='danger'>[user] smashes [src] apart!</span>")
-		user.say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, NOMINATIVE_CASE)] на части!</span>")
+		user.say(pick(";РААААААААГХ!", ";ХHННННННННГГГГГГХ!", ";ГВААААААААРРРХХХ!", "ННННННННГГГГГГГГХХ!", ";АААААААРРГХ!" ))
 		deconstruct(TRUE)
 
 /obj/structure/rack/attack_paw(mob/user)
 	if(HULK in user.mutations)
 		user.SetNextMove(CLICK_CD_MELEE)
 		user.do_attack_animation(src)
-		user.say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
-		visible_message("<span class='danger'>[user] smashes [src] apart!</span>")
+		user.say(pick(";РРРРРРАААРГХ!", ";ХHННННННННГГГГГГХ!", ";ГВААААААААРРРХХХ!", "ННННННННГГГГГГГГХХ!", ";АААААААРРГХ!" ))
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, NOMINATIVE_CASE)] на части!</span>")
 		deconstruct(TRUE)
 
 /obj/structure/rack/attack_alien(mob/user)
 	user.do_attack_animation(src)
 	user.SetNextMove(CLICK_CD_MELEE)
-	visible_message("<span class='danger'>[user] slices [src] apart!</span>")
+	visible_message("<span class='danger'>[user] разрезает [CASE(src, ACCUSATIVE_CASE)] на части!</span>")
 	deconstruct(TRUE)
 
 /obj/structure/rack/attack_animal(mob/living/simple_animal/user)
@@ -801,7 +889,7 @@
 		..()
 		playsound(user, 'sound/effects/grillehit.ogg', VOL_EFFECTS_MASTER)
 		user.do_attack_animation(src)
-		visible_message("<span class='danger'>[user] smashes [src] apart!</span>")
+		visible_message("<span class='danger'>[user] разламывает [CASE(src, ACCUSATIVE_CASE)] на части!</span>")
 		deconstruct(TRUE)
 
 /obj/structure/rack/attack_tk() // no telehulk sorry

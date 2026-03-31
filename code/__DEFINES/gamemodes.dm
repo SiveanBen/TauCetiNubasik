@@ -9,6 +9,8 @@
 #define F_CUSTOMSQUAD        "Custom Squad"
 #define F_DEATHSQUAD         "Nanotrasen Deathsquad"
 #define F_EMERSQUAD          "Emergency Response Team"
+#define F_EMERNUKE           "Gorlex Marauders Recon Squad"
+#define F_EMERPIRATES        "Pirate Gang"
 #define F_FAMILIES           "Families"
 #define F_HEIST              "Vox Shoal"
 #define F_HIVEMIND           "Changeling Hivemind"
@@ -23,6 +25,8 @@
 #define F_XENOMORPH_HIVE     "Alien Hivemind"
 #define F_ZOMBIES            "Zobmies"
 #define F_REPLICATORS        "Replicators"
+#define F_MALF_DRONES		 "Malf Drones"
+#define F_SPACE_TRADERS      "Space Traders"
 
 // Role IDs
 #define ABDUCTOR_AGENT "Abductor Agent"
@@ -45,6 +49,7 @@
 #define MALFBOT "Malf-Slaved Cyborg"
 #define NUKE_OP "Nuclear Operative"
 #define NUKE_OP_LEADER "Nuclear Operative Leader"
+#define LONE_OP "Solo Nuclear Operative"
 #define NINJA "Space Ninja"
 #define PROP "Prop"
 #define REV "Revolutionary"
@@ -55,6 +60,9 @@
 #define SPACE_COP "OCD Officer"
 #define SYNDIESQUADIE "Syndicate Commando"
 #define TRAITOR "Traitor"
+#define TRAITOR_WISHGRANTER "Traitor Wishgranter"
+#define TRAITOR_SYNDBEACON "Traitor Syndbeacon"
+#define TRAITOR_SYNDCALL "Traitor Syndcall"
 #define TRAITORCHAN "TraitorChan"
 #define UNDERCOVER_COP "Undercover Officer"
 #define VOXRAIDER "Vox Raider"
@@ -62,6 +70,12 @@
 #define WIZ_APPRENTICE "Wizard Apprentice"
 #define XENOMORPH "Xenomorph"
 #define REPLICATOR "Replicator"
+#define PIRATE "Pirate"
+#define PRISONER "Prisoner"
+#define MALF_DRONE "Malf Drone"
+#define SPACE_TRADER "Space Trader"
+#define THIEF "Thief"
+#define ZOMBIE "Zombie"
 
 ////////////////////// GREETS /////////////////////////
 #define GREET_DEFAULT		"default"
@@ -75,9 +89,11 @@
 ///////////////// FACTION STAGES //////////////////////
 #define FS_DEFEATED    -1
 #define FS_DORMANT      0
-#define FS_ACTIVE       1
-#define FS_ENDGAME      2
-#define FS_VICTORY      3
+#define FS_START        1
+#define FS_ACTIVE       2
+#define FS_MIDGAME      3
+#define FS_ENDGAME      4
+#define FS_VICTORY      5
 
 /////////////////////// OTHERS ////////////////////////
 

@@ -125,9 +125,8 @@ ADD_TO_GLOBAL_LIST(/obj/structure/particle_accelerator, particle_accelerator_lis
 
 
 /obj/structure/particle_accelerator/attackby(obj/item/W, mob/user)
-	if(istool(W))
-		if(process_tool_hit(W,user))
-			return
+	if(process_tool_hit(W,user))
+		return
 	..()
 	return
 
@@ -204,14 +203,14 @@ ADD_TO_GLOBAL_LIST(/obj/structure/particle_accelerator, particle_accelerator_lis
 	switch(src.construction_state)//TODO:Might be more interesting to have it need several parts rather than a single list of steps
 		if(0)
 			if(iswrenching(O))
-				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
+				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, quality = QUALITY_WRENCHING, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
 					src.anchored = TRUE
 					user.visible_message("[user.name] secures the [src.name] to the floor.", \
 						"You secure the external bolts.")
 					temp_state++
 		if(1)
 			if(iswrenching(O))
-				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75,  required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
+				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, quality = QUALITY_WRENCHING,  required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
 					src.anchored = FALSE
 					user.visible_message("[user.name] detaches the [src.name] from the floor.", \
 						"You remove the external bolts.")
@@ -306,9 +305,8 @@ ADD_TO_GLOBAL_LIST(/obj/structure/particle_accelerator, particle_accelerator_lis
 
 
 /obj/machinery/particle_accelerator/attackby(obj/item/W, mob/user)
-	if(istool(W))
-		if(process_tool_hit(W,user))
-			return
+	if(process_tool_hit(W,user))
+		return
 	..()
 	return
 
@@ -342,14 +340,14 @@ ADD_TO_GLOBAL_LIST(/obj/structure/particle_accelerator, particle_accelerator_lis
 	switch(src.construction_state)//TODO:Might be more interesting to have it need several parts rather than a single list of steps
 		if(0)
 			if(iswrenching(O))
-				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75,  required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
+				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, quality = QUALITY_WRENCHING,  required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
 					src.anchored = TRUE
 					user.visible_message("[user.name] secures the [src.name] to the floor.", \
 						"You secure the external bolts.")
 					temp_state++
 		if(1)
 			if(iswrenching(O))
-				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
+				if(O.use_tool(src, user, SKILL_TASK_VERY_EASY, volume = 75, quality = QUALITY_WRENCHING, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_PRO)))
 					src.anchored = FALSE
 					user.visible_message("[user.name] detaches the [src.name] from the floor.", \
 						"You remove the external bolts.")

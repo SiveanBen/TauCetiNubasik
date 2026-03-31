@@ -110,12 +110,29 @@
 		var/datum/disease2/disease/D = disease.getcopy()
 //		log_debug("Adding virus")
 		M.virus2["[D.uniqueID]"] = D
+		D.register_host(M)
 		M.med_hud_set_status()
+
+/obj/machinery/hydroponics/proc/infect_planttray_virus2(datum/disease2/disease/source)
+	if("[source.uniqueID]" in virus2)
+		return
+	if(!can_be_infected(source))
+		return
+	var/datum/disease2/disease/D = source.getcopy()
+	//boost growing in hydroponic tray
+	D.stageprob *= 10
+	D.speed *= 10
+	D.cooldown_mul *= 10
+	for(var/datum/disease2/effectholder/holder in D.effects)
+		holder.chance *= 10
+
+	virus2["[D.uniqueID]"] = D
+	D.register_host(src)
 
 //Infects mob M with random lesser disease, if he doesn't have one
 /proc/infect_mob_random_lesser(mob/living/carbon/M)
 	var/datum/disease2/disease/D = new /datum/disease2/disease
-	D.makerandom()
+	D.makerandom(spread_vector = DISEASE_SPREAD_AIRBORNE)
 	D.infectionchance = 1
 	infect_virus2(M,D,1)
 	M.med_hud_set_status()
@@ -123,7 +140,7 @@
 //Infects mob M with random greated disease, if he doesn't have one
 /proc/infect_mob_random_greater(mob/living/carbon/M)
 	var/datum/disease2/disease/D = new /datum/disease2/disease
-	D.makerandom(1)
+	D.makerandom(1, DISEASE_SPREAD_AIRBORNE)
 	infect_virus2(M,D,1)
 	M.med_hud_set_status()
 
@@ -140,13 +157,13 @@
 		for (var/ID in virus2)
 //			log_debug("Attempting virus [ID]")
 			var/datum/disease2/disease/V = virus2[ID]
-			if(V.spreadtype != vector) continue
-
+			if(V.spreadtype != vector)
+				continue
 			if (vector == DISEASE_SPREAD_AIRBORNE)
 				if(airborne_can_reach(get_turf(src), get_turf(victim)))
 //					log_debug("In range, infecting")
 					infect_virus2(victim,V)
-				else
+//				else
 //					log_debug("Could not reach target")
 
 			if (vector == DISEASE_SPREAD_CONTACT)

@@ -7,7 +7,7 @@
 
 /mob/proc/emote_dead(message)
 
-	if(client.prefs.muted & MUTE_DEADCHAT)
+	if(client.prefs.muted & MUTE_OOC || IS_ON_ADMIN_CD(client, ADMIN_CD_OOC))
 		to_chat(src, "<span class='warning'>You cannot send deadchat emotes (muted).</span>")
 		return
 
@@ -71,6 +71,7 @@
 		return
 
 	emo.do_emote(src, act, intentional)
+	SEND_SIGNAL(src, COMSIG_MOB_EMOTE, act, intentional)
 
 // A simpler emote. Just the message, and it's type. If you want anything more complex - make a datumized emote.
 /mob/proc/me_emote(message, message_type = SHOWMSG_VISUAL, intentional = FALSE)
@@ -78,13 +79,16 @@
 
 	var/msg = "<b>[src]</b> <i>[message]</i>"
 	if(message_type & SHOWMSG_VISUAL)
-		visible_message(msg, ignored_mobs = observer_list)
+		visible_message(msg, ignored_mobs = observer_list, runechat_msg = message)
 	else
-		audible_message(msg, ignored_mobs = observer_list)
+		audible_message(msg, ignored_mobs = observer_list, runechat_msg = message)
 
 	for(var/mob/M as anything in observer_list)
 		if(!M.client)
 			continue
+
+		if(M in viewers(get_turf(src), world.view))
+			M.show_runechat_message(src, null, message, null, SHOWMSG_VISUAL)
 
 		switch(M.client.prefs.chat_ghostsight)
 			if(CHAT_GHOSTSIGHT_ALL)

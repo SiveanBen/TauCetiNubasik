@@ -174,16 +174,16 @@
 		return FALSE
 	switch(fuel_am)
 		if(0 to 100)
-			explosion(loc, -1, 1, 2)
+			explosion(loc, 0, 1, 2)
 		if(100 to 500)
 			explosion(loc, 0, 1, 3)
 		else
-			explosion(loc, 1, 2, 4)
+			explosion(loc, 0, 2, 4)
 	qdel(src)
 	return TRUE
 
-/obj/structure/reagent_dispensers/fire_act(datum/gas_mixture/air, temperature, volume)
-	if(temperature > T0C+500)
+/obj/structure/reagent_dispensers/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
+	if(exposed_temperature > T0C+500)
 		if(explode())
 			return
 	return ..()
@@ -248,17 +248,67 @@ ADD_TO_GLOBAL_LIST(/obj/structure/reagent_dispensers/fueltank, fueltank_list)
 
 /obj/structure/reagent_dispensers/water_cooler
 	name = "Water-Cooler"
-	desc = "A machine that dispenses water to drink."
+	desc = "A machine that dispenses water to drink. It also has a stack of cups for convenience."
 	amount_per_transfer_from_this = 5
 	icon = 'icons/obj/vending.dmi'
 	icon_state = "water_cooler"
 	possible_transfer_amounts = null
 	anchored = TRUE
+	var/cups = 20
+	var/max_cups = 20
 
 /obj/structure/reagent_dispensers/water_cooler/atom_init()
 	. = ..()
 	reagents.add_reagent("water",500)
+	update_icon()
 
+/obj/structure/reagent_dispensers/water_cooler/update_icon()
+	cut_overlays()
+	switch(cups)
+		if(16 to 20)
+			add_overlay("cups-full")
+		if(11 to 15)
+			add_overlay("cups-medium2")
+		if(6 to 10)
+			add_overlay("cups-medium")
+		if(1 to 5)
+			add_overlay("cups-low")
+		if(0)
+			add_overlay("cups-empty")
+
+/obj/structure/reagent_dispensers/water_cooler/examine(mob/user)
+	..()
+	to_chat(user, "<span class='notice'>There are [cups] cups left in [src].</span>")
+
+/obj/structure/reagent_dispensers/water_cooler/attack_hand(mob/user)
+	. = ..()
+	if(cups)
+		var/obj/item/weapon/reagent_containers/food/drinks/sillycup/cup = new /obj/item/weapon/reagent_containers/food/drinks/sillycup(get_turf(src))
+		user.put_in_hands(cup)
+		to_chat(user, "<span class='notice'>You take a cup from [src].</span>")
+		cups--
+		update_icon()
+	else
+		to_chat(user, "<span class='warning'>There are no cups left in [src]!</span>")
+
+/obj/structure/reagent_dispensers/water_cooler/attackby(obj/item/weapon/W, mob/user)
+	if(iswrenching(W))
+		default_unfasten_wrench(user, W)
+		return
+	else if(isscrewing(W))
+		user.SetNextMove(CLICK_CD_RAPID)
+		if(reagents.total_volume > 0)
+			user.visible_message("[user] starts loosening the valve on [src] with [W].", \
+				"You start loosening the valve on [src] with [W], causing water to leak out.")
+			if(do_after(user, 30, target = src))
+				user.visible_message("<span class='notice'>[user] loosens the valve on [src], causing water to leak out.</span>", \
+					"<span class='notice'>You loosen the valve on [src], causing water to leak out.</span>")
+				leak(amount_per_transfer_from_this * 5)
+		else
+			to_chat(user, "<span class='notice'>[src] is empty.</span>")
+		return
+	else
+		return ..()
 
 /obj/structure/reagent_dispensers/beerkeg
 	name = "beer keg"
@@ -271,7 +321,7 @@ ADD_TO_GLOBAL_LIST(/obj/structure/reagent_dispensers/fueltank, fueltank_list)
 	reagents.add_reagent("beer",1000)
 
 /obj/structure/reagent_dispensers/beerkeg/blob_act()
-	explosion(src.loc,0,3,5,7,10)
+	explosion(src.loc,0,3,5,7)
 	qdel(src)
 
 /obj/structure/reagent_dispensers/virusfood
@@ -283,7 +333,7 @@ ADD_TO_GLOBAL_LIST(/obj/structure/reagent_dispensers/fueltank, fueltank_list)
 
 /obj/structure/reagent_dispensers/virusfood/atom_init()
 	. = ..()
-	reagents.add_reagent("virusfood", 1000)
+	reagents.add_reagent("virusfood", 15)
 
 /obj/structure/reagent_dispensers/acid
 	name = "Sulphuric Acid Dispenser"

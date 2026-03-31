@@ -14,9 +14,15 @@
 	integrity_failure = 0.75
 	resistance_flags = CAN_BE_HIT
 
+	hit_particle_type = /particles/tool/digging/glass
+
 	can_block_air = TRUE
 
 	var/list/drops = list(/obj/item/weapon/shard)
+
+/obj/structure/window/atom_init()
+	update_nearby_tiles()
+	return ..()
 
 /obj/structure/window/play_attack_sound(damage_amount, damage_type, damage_flag)
 	switch(damage_type)
@@ -91,6 +97,7 @@
 					visible_message("<span class='danger'>[A] slams [M] against \the [src]!</span>")
 
 					M.log_combat(user, "slammed against [name]")
+					SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, M)
 				if(2)
 					if (prob(50))
 						M.Stun(1)
@@ -99,6 +106,7 @@
 					take_damage(9, BRUTE, MELEE)
 					visible_message("<span class='danger'>[A] bashes [M] against \the [src]!</span>")
 					M.log_combat(user, "bashed against [name]")
+					SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, M)
 				if(3)
 					M.Stun(5)
 					M.Weaken(5)
@@ -106,6 +114,7 @@
 					take_damage(12, BRUTE, MELEE)
 					visible_message("<span class='danger'><big>[A] crushes [M] against \the [src]!</big></span>")
 					M.log_combat(user, "crushed against [name]")
+					SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, M)
 		return
 
 	return ..()

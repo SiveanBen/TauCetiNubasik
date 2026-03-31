@@ -25,7 +25,7 @@
 #define DEFAULT_TEMPO    120
 #define DEFAULT_VOLUME   100
 #define MAX_LINE_SIZE    50
-#define MAX_LINES_COUNT  150
+#define MAX_LINES_COUNT  450
 #define MAX_SONG_SIZE    MAX_LINE_SIZE*MAX_LINES_COUNT
 #define MAX_REPEAT_COUNT 10
 #define MAX_TEMPO_RATE   600
@@ -55,8 +55,8 @@ var/global/datum/notes_storage/note_cache_storage = new
 	var/obj/instrument  = null
 	var/sound_path      = ""
 
-	var/list/song_lines = list()
-	var/song_tempo      = DEFAULT_TEMPO
+	var/list/song_lines    = list()
+	var/song_tempo         = DEFAULT_TEMPO
 
 	var/playing   = FALSE
 	var/show_help = FALSE
@@ -81,38 +81,38 @@ var/global/datum/notes_storage/note_cache_storage = new
 
 	if(song_lines.len)
 		if(playing)
-			html += "<a href='?src=\ref[src];stop=1'>Stop Playing</a><br>"
+			html += "<a href='byond://?src=\ref[src];stop=1'>Stop Playing</a><br>"
 			html += "Repeats left: [repeat]<br><br>"
 		else
-			html += "<a href='?src=\ref[src];play=1'>Play Song</a><br>"
-			html += "<a href='?src=\ref[src];repeat=1'>Repeat Song: [repeat] times</a><br><br>"
+			html += "<a href='byond://?src=\ref[src];play=1'>Play Song</a><br>"
+			html += "<a href='byond://?src=\ref[src];repeat=1'>Repeat Song: [repeat] times</a><br><br>"
 
 	if(!show_edit)
-		html += "<a href='?src=\ref[src];show_edit=1'>Show Editor</a><br><br>"
+		html += "<a href='byond://?src=\ref[src];show_edit=1'>Show Editor</a><br><br>"
 	else
-		html += "<a href='?src=\ref[src];show_edit=0'>Hide Editor</a><br>"
+		html += "<a href='byond://?src=\ref[src];show_edit=0'>Hide Editor</a><br>"
 		if(song_lines.len)
-			html += "<a href='?src=\ref[src];newsong=1'>Start a New Song</a><br>"
-		html += "<a href='?src=\ref[src];import=1'>Import a Song</a><br><br>"
+			html += "<a href='byond://?src=\ref[src];newsong=1'>Start a New Song</a><br>"
+		html += "<a href='byond://?src=\ref[src];import=1'>Import a Song</a><br><br>"
 
 		if(song_lines.len)
-			html += "<a href='?src=\ref[src];change_tempo=1'>Tempo: [song_tempo] BPM</a><br><br>"
+			html += "<a href='byond://?src=\ref[src];change_tempo=1'>Tempo: [song_tempo] BPM</a><br><br>"
 
 			html += "<table>"
 			for(var/line_num in 1 to song_lines.len)
 				html += "<tr>"
 				html += "<td><b>Line [line_num]:</b></td>"
 				html += "<td>[song_lines[line_num]]</td>"
-				html += "<td><a href='?src=\ref[src];deleteline=[line_num]'>Delete Line</a> <a href='?src=\ref[src];modifyline=[line_num]'>Modify Line</a></td>"
+				html += "<td><a href='byond://?src=\ref[src];deleteline=[line_num]'>Delete Line</a> <a href='byond://?src=\ref[src];modifyline=[line_num]'>Modify Line</a></td>"
 				html += "</tr>"
 			html += "</table>"
 
-			html += "<a href='?src=\ref[src];newline=1'>Add Line</a><br><br>"
+			html += "<a href='byond://?src=\ref[src];newline=1'>Add Line</a><br><br>"
 
 		if(!show_help)
-			html += "<a href='?src=\ref[src];show_help=1'>Show help</a>"
+			html += "<a href='byond://?src=\ref[src];show_help=1'>Show help</a>"
 		else
-			html += "<a href='?src=\ref[src];show_help=0'>Hide Help</a><br>"
+			html += "<a href='byond://?src=\ref[src];show_help=0'>Hide Help</a><br>"
 			html += {"
 					Lines are a series of chords, separated by commas (,), each with notes seperated by hyphens (-).<br>
 					Every note in a chord will play together, with chord timed by the tempo.<br>
@@ -144,6 +144,7 @@ var/global/datum/notes_storage/note_cache_storage = new
 	if(instrument.Adjacent(usr) && isliving(usr) && !issilicon(usr))
 		if(href_list["newsong"])
 			playing = FALSE
+			SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_END, FALSE)
 			song_lines.len = 0
 
 		else if(href_list["show_help"])
@@ -170,10 +171,12 @@ var/global/datum/notes_storage/note_cache_storage = new
 				return
 
 			song_tempo = clamp(new_tempo, 1, MAX_TEMPO_RATE)
+			SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_TEMPO_CHANGE, src)
 
 		else if(href_list["play"])
 			playing = TRUE
-			INVOKE_ASYNC(src, /datum/music_player.proc/playsong, usr)
+			INVOKE_ASYNC(src, TYPE_PROC_REF(/datum/music_player, playsong), usr)
+			SEND_SIGNAL(usr, COMSIG_ATOM_STARTING_INSTRUMENT, src)
 
 		else if(href_list["newline"])
 			if(song_lines.len > MAX_LINES_COUNT)
@@ -201,6 +204,7 @@ var/global/datum/notes_storage/note_cache_storage = new
 
 		else if(href_list["stop"])
 			playing = FALSE
+			SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_END, FALSE)
 
 		else if(href_list["import"])
 			var/song_text = sanitize(input("Please, paste the entire song formatted: ") as message|null, MAX_SONG_SIZE, extra = FALSE, ascii_only = TRUE)
@@ -210,6 +214,7 @@ var/global/datum/notes_storage/note_cache_storage = new
 
 			parse_song_text(song_text)
 			playing = FALSE
+			SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_END, FALSE)
 
 		interact(usr)
 
@@ -227,6 +232,9 @@ var/global/datum/notes_storage/note_cache_storage = new
 			cur_acc[i] = "n"
 
 		for(var/line in song_lines)
+			// Use new BPM for the songlines
+			if(find_and_set_tempo(line))
+				continue
 			for(var/beat in splittext(lowertext(line), ","))
 
 				// Some browsers may delete last space on line when copying text in buffer,
@@ -239,6 +247,7 @@ var/global/datum/notes_storage/note_cache_storage = new
 				for(var/note in splittext(notes[1], "-"))
 					if(!playing || instrument.unable_to_play(musician))
 						playing = FALSE
+						SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_END, FALSE)
 						return
 
 					if(length(note) == 0)
@@ -270,7 +279,6 @@ var/global/datum/notes_storage/note_cache_storage = new
 						var/sound/S = global.note_cache_storage.instrument_sound_notes["[sound_path]/[current_note]"]
 						if(!S)
 							S = global.note_cache_storage.instrument_sound_notes["[sound_path]/[current_note]"] = sound("[sound_path]/[current_note].ogg")
-
 						playsound(instrument, S, VOL_EFFECTS_INSTRUMENT, volume, FALSE, null, null, falloff = 5)
 
 				var/pause_time = COUNT_PAUSE(song_tempo)
@@ -279,10 +287,12 @@ var/global/datum/notes_storage/note_cache_storage = new
 					pause_time /= text2num(notes[2])
 
 				sleep(pause_time)
+		SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_REPEAT, TRUE)
 	while(repeat-- > 0)
 
 	repeat = 0
 	playing = FALSE
+	SEND_SIGNAL(instrument, COMSIG_INSTRUMENT_END, TRUE)
 	interact(musician)
 
 /datum/music_player/proc/parse_song_text(song_text)
@@ -291,8 +301,7 @@ var/global/datum/notes_storage/note_cache_storage = new
 
 	var/list/lines = splittext(song_text, "\n")
 
-	if(copytext(lines[1], 1, 5) == "BPM:")
-		song_tempo = clamp(text2num(copytext(lines[1], 5)), 1, MAX_TEMPO_RATE)
+	if(find_and_set_tempo(lines[1]) && !has_multiple_matches(song_text, "BPM:"))
 		lines.Cut(1, 2)
 
 	if(lines.len > MAX_LINES_COUNT)
@@ -303,6 +312,12 @@ var/global/datum/notes_storage/note_cache_storage = new
 			lines[line_num] = copytext(lines[line_num], 1, MAX_LINE_SIZE)
 
 	song_lines = lines
+
+/datum/music_player/proc/find_and_set_tempo(song_line)
+	if(copytext(song_line, 1, 5) == "BPM:")
+		song_tempo = clamp(text2num(copytext(song_line, 5)), 1, MAX_TEMPO_RATE)
+		return TRUE
+	return FALSE
 
 #undef COUNT_PAUSE
 #undef DEFAULT_TEMPO

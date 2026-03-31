@@ -94,6 +94,13 @@ var/global/initial_station_money = 7500
 	newChannel.is_admin_channel = 1
 	news_network.network_channels += newChannel
 
+	newChannel = new /datum/feed_channel
+	newChannel.channel_name = "Station Announcements"
+	newChannel.author = station_name()
+	newChannel.locked = 1
+	newChannel.is_admin_channel = 1
+	news_network.network_channels += newChannel
+
 	for(var/loc_type in subtypesof(/datum/trade_destination))
 		var/datum/trade_destination/D = new loc_type
 		weighted_randomevent_locations[D] = D.viable_random_events.len
@@ -102,18 +109,29 @@ var/global/initial_station_money = 7500
 	create_station_account()
 	create_centcomm_account()
 
-	for(var/department in station_departments)
-		create_department_account(department)
+	for(var/datum/department/D as anything in SSjob.departments)
+		if(D.station_account)
+			create_department_account(D.title)
 
-	create_department_account("Vendor")
-	vendor_account = department_accounts["Vendor"]
+	vendor_account = create_account("Vendor", 1000, age = 135)
 
+	// todo: cargo department exists only in accounts, wold be better to separate them already
+	create_department_account("Cargo")
 	cargo_account = department_accounts["Cargo"]
 	SSeconomy.set_dividend_rate("Cargo", 0.1)
 	// Enough stock to supply 2 cargos of employees with it. TO-DO: calculate it programatically depending on map changes to jobs?
 	SSeconomy.issue_founding_stock(cargo_account.account_number, "Cargo", 260)
+	// Pay out the insurance to everyone completely.
+	SSeconomy.set_dividend_rate("Medical", 1.0)
+	// Enoguh stock to supply 2 medbay employees. See comment above.
+	SSeconomy.issue_founding_stock(global.department_accounts["Medical"], "Medical", 410)
 
-	current_date_string = "[num2text(rand(1,31))] [pick("January","February","March","April","May","June","July","August","September","October","November","December")], [game_year]"
+	var/MM = time2text(world.timeofday, "MM")
+	var/DD = time2text(world.timeofday, "DD")
+	current_date_string = "[DD].[MM].[game_year]"
+
+	setup_shop()
+	setup_vending()
 
 	economy_init = TRUE
 	return 1
@@ -125,12 +143,13 @@ var/global/initial_station_money = 7500
 	global.centcomm_account = new
 	global.centcomm_account.owner_name = "CentComm Station Account"
 	global.centcomm_account.account_number = rand(111111, 999999)
-	global.centcomm_account.remote_access_pin = rand(1111, 111111)
+	global.centcomm_account.remote_access_pin = rand(1111, 9999)
 	global.centcomm_account.security_level = 2
 	global.centcomm_account.money = 10000000
 	global.centcomm_account.hidden = TRUE
 	// Is needed in case admins want to have some !!!FUN!!!
 	SSeconomy.issue_founding_stock(global.centcomm_account.account_number, "Cargo", 10)
+	SSeconomy.issue_founding_stock(global.centcomm_account.account_number, "Medical", 10)
 
 	//create an entry in the account transaction log for when it was created
 	var/datum/transaction/T = new()
@@ -151,11 +170,12 @@ var/global/initial_station_money = 7500
 	station_account = new()
 	station_account.owner_name = "[station_name()] Station Account"
 	station_account.account_number = rand(111111, 999999)
-	station_account.remote_access_pin = rand(1111, 111111)
+	station_account.remote_access_pin = rand(1111, 9999)
 	station_account.security_level = 1
 	station_account.money = global.initial_station_money
 	// Station gets a slight rebound on all cargo activity from stock ownership. In theory HoP or Captain can also sell this.
 	SSeconomy.issue_founding_stock(station_account.account_number, "Cargo", 10)
+	SSeconomy.issue_founding_stock(station_account.account_number, "Medical", 10)
 
 	//create an entry in the account transaction log for when it was created
 	var/datum/transaction/T = new()
@@ -174,7 +194,7 @@ var/global/initial_station_money = 7500
 	var/datum/money_account/department_account = new()
 	department_account.owner_name = "[department] Account"
 	department_account.account_number = rand(111111, 999999)
-	department_account.remote_access_pin = rand(1111, 111111)
+	department_account.remote_access_pin = rand(1111, 9999)
 	department_account.security_level = 1
 	department_account.money = 500
 
@@ -191,3 +211,16 @@ var/global/initial_station_money = 7500
 	department_account.transaction_log.Add(T)
 
 	department_accounts[department] = department_account
+
+/proc/setup_shop()
+	for(var/obj/random_shop_item/Item in global.random_onlineshop_items)
+		Item.generate_shop_item()
+
+/proc/setup_vending()
+	for(var/obj/machinery/vending/Vend in global.vending_machines)
+		switch(Vend.seller_account_number)
+			if(MAP_VENDOR_ACCOUNT_NUMBER_PLACEHOLDER)
+				Vend.seller_account_number = global.vendor_account.account_number
+
+			if(MAP_CARGO_ACCOUNT_NUMBER_PLACEHOLDER)
+				Vend.seller_account_number = global.cargo_account.account_number

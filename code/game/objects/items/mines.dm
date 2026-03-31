@@ -62,14 +62,14 @@
 			qdel(src)
 
 /obj/item/mine/proc/trigger_act(obj)
-	explosion(loc, 1, 1, 3, 3)
+	explosion(loc, 0, 1, 3)
 
 /obj/item/mine/proc/try_disarm(obj/item/I, mob/user)
 	if((I && !ispulsing(I)) || !anchored)
 		return
 
 	user.visible_message("<span class='notice'>[user] starts disarming [src].</span>", "<span class='notice'>You start disarming [src].</span>")
-	if(I.use_tool(src, user, 40, volume = 50))
+	if(I.use_tool(src, user, 40, volume = 50, quality = QUALITY_PULSING))
 		user.visible_message("<span class='notice'>[user] finishes disarming [src].</span>", "<span class='notice'>You finish disarming [src].</span>")
 
 		disarm()
@@ -113,7 +113,7 @@
 	icon_state = "incendiarymine"
 
 /obj/item/mine/incendiary/trigger_act(obj)
-	explosion(loc, 0.5, 1, 1)
+	explosion(loc, 0, 0, 2)
 	if(isliving(obj))
 		var/mob/living/M = obj
 		M.adjust_fire_stacks(10)
@@ -128,7 +128,7 @@
 	icon_state = "empmine"
 
 /obj/item/mine/emp/trigger_act(obj)
-	empulse(src, 2, 3)
+	empulse(src, 2, 3, custom_effects = EMP_SEBB)
 
 /obj/item/mine/emp/anchored
 	anchored = TRUE

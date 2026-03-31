@@ -17,7 +17,7 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 // To ensure that if output file syntax is changed, we will still be able to process
 // new and old files
 // please increment this version whenever making changes
-#define STAT_OUTPUT_VERSION 7
+#define STAT_OUTPUT_VERSION 8
 #define STAT_FILE_NAME "stat.json"
 
 // Documentation rules:
@@ -39,6 +39,8 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 	var/mode
 	// string, ["win", "lose"], shows whether all objectives of all antagonists' are completed
 	var/mode_result
+	// string, pool in ./code/game/gamemodes/modesbundle.dm in var name
+	var/bundle
 	// string, pool in ./maps/ directory in json files in var map_name
 	var/map
 	// You can get the nanoui map using
@@ -62,6 +64,8 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 	// array of objects
 	var/list/datum/stat/achievement/achievements = list()
 	// array of objects
+	var/list/datum/stat/medal/medals = list()
+	// array of objects
 	var/list/datum/stat/communication_log/communication_logs = list()
 
 	// New data
@@ -79,6 +83,8 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 	var/list/datum/stat/faction/factions = list()
 	// array of objects
 	var/list/datum/stat/emp_stat/emps = list()
+	// array of objects
+	var/list/datum/stat/vote/completed_votes = list()
 
 /datum/stat_collector/New()
 	var/datum/default_datum = new
@@ -109,11 +115,13 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 	duration = roundduration2text()
 	mode = SSticker.mode.name
 	mode_result = SSticker.mode.get_mode_result()
+	bundle = SSticker.bundle?.name
 	map = SSmapping.config.map_name
 	minimap_image = "nano/images/nanomap_[SSmapping.station_image]_1.png"
 	server_address = BYOND_SERVER_ADDRESS
 	base_commit_sha = global.base_commit_sha
-	test_merges = global.test_merges
+	if(global.test_merges)
+		test_merges = "#" + jointext(global.test_merges, "# ")
 	completion_html = SSticker.mode.completition_text
 
 	save_manifest_entries()
@@ -122,8 +130,6 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 		leave_stats += global.disconnected_ckey_by_stat[ckey]
 
 /datum/stat_collector/proc/save_manifest_entries()
-	var/list/white_assigned_roles = get_all_jobs_with_silicons() + get_all_centcom_jobs() + get_all_velocity_jobs()
-	white_assigned_roles += "MODE" // non station roles
 	var/list/white_special_roles = get_roles_with_interesting_names() // roles with interesting names, like xenomorphs and blobs
 	var/regex/is_drone = regex(@"maintenance drone \(\d+\)")
 
@@ -132,7 +138,7 @@ var/global/datum/stat_collector/SSStatistics = new /datum/stat_collector
 			continue
 		if(M.name == "unknown") // useless data
 			continue
-		if(!(M.assigned_role in white_assigned_roles))
+		if(!((M.assigned_role in SSjob.name_occupations) || M.assigned_role == "MODE"))
 			continue
 		if(M.special_role && !(M.special_role in white_special_roles))
 			continue

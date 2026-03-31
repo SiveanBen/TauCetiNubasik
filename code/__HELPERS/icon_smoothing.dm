@@ -115,6 +115,9 @@
 
 //do not use, use queue_smooth(atom)
 /proc/smooth_icon(atom/A)
+	if(!A.initialized)
+		warning("Smoothing called for not initialized atom [A] [A.type] at [A.x].[A.y].[A.z]!")
+
 	if(!A || !(A.smooth || length(A.smooth_adapters)))
 		return
 	A.smooth &= ~SMOOTH_QUEUED
@@ -299,24 +302,6 @@
 		var/atom/A = locate(source.type) in target_turf
 		return A && A.type == source.type ? A : null
 
-//Icon smoothing helpers
-/proc/smooth_zlevel(zlevel, now = FALSE)
-	var/list/away_turfs = block(locate(1, 1, zlevel), locate(world.maxx, world.maxy, zlevel))
-	for(var/V in away_turfs)
-		var/turf/T = V
-		if(T.smooth)
-			if(now)
-				smooth_icon(T)
-			else
-				queue_smooth(T)
-		for(var/R in T)
-			var/atom/A = R
-			if(A.smooth)
-				if(now)
-					smooth_icon(A)
-				else
-					queue_smooth(A)
-
 /atom/proc/smooth_set_icon(adjacencies)
 #ifdef MANUAL_ICON_SMOOTH
 	return
@@ -325,9 +310,12 @@
 		smooth_icon_initial = icon
 	var/cache_string = "["[type]"]"
 	if(!global.baked_smooth_icons[cache_string])
-		// has_false_walls is a file PATH flag, yes
-		var/icon/I = SliceNDice(icon(smooth_icon_initial), !!findtext("[smooth_icon_initial]", "has_false_walls"))
-		global.baked_smooth_icons[cache_string] = I // todo: we can filecache it
+		var/icon/I = try_access_persistent_cache("[ckey(cache_string)].dmi", path2text(smooth_icon_initial))
+		if(!I)
+			// has_false_walls is a file PATH flag, yes
+			I = SliceNDice(icon(smooth_icon_initial), !!findtext("[smooth_icon_initial]", "has_false_walls"))
+			save_persistent_cache(I, "[ckey(cache_string)].dmi", path2text(smooth_icon_initial))
+		global.baked_smooth_icons[cache_string] = I
 
 	icon = global.baked_smooth_icons[cache_string]
 	icon_state = "[adjacencies]"
@@ -352,19 +340,22 @@
 		cache_string += "_grilled"
 
 	if(!global.baked_smooth_icons[cache_string])
+		var/icon/I = try_access_persistent_cache("[ckey(cache_string)].dmi", path2text(smooth_icon_windowstill), path2text(smooth_icon_grille), path2text(smooth_icon_window))
+		if(!I)
+			var/icon/blended = new(smooth_icon_windowstill)
 
-		var/icon/blended = new(smooth_icon_windowstill)
+			if(grilled)
+				var/icon/grille = new(smooth_icon_grille)
+				blended.Blend(grille,ICON_OVERLAY)
 
-		if(grilled)
-			var/icon/grille = new(smooth_icon_grille)
-			blended.Blend(grille,ICON_OVERLAY)
+			var/icon/window = new(smooth_icon_window)
+			if(glass_color)
+				window.Blend(glass_color, ICON_MULTIPLY)
+			blended.Blend(window,ICON_OVERLAY)
 
-		var/icon/window = new(smooth_icon_window)
-		if(glass_color)
-			window.Blend(glass_color, ICON_MULTIPLY)
-		blended.Blend(window,ICON_OVERLAY)
+			I = SliceNDice(blended)
+			save_persistent_cache(I, "[ckey(cache_string)].dmi", path2text(smooth_icon_windowstill), path2text(smooth_icon_grille), path2text(smooth_icon_window))
 
-		var/icon/I = SliceNDice(blended)
 		global.baked_smooth_icons[cache_string] = I
 
 	icon = global.baked_smooth_icons[cache_string]
@@ -415,9 +406,12 @@
 			queue_smooth(T)
 
 //SSicon_smooth
-/proc/queue_smooth(atom/A)
+/proc/queue_smooth(atom/A, reset_icon = FALSE)
 	if(!(A.smooth || length(A.smooth_adapters)) || A.smooth & SMOOTH_QUEUED)
 		return
+
+	if(reset_icon) // in case if you need to do smoothing with new atom icon
+		A.smooth_icon_initial = null
 
 	SSicon_smooth.smooth_queue += A
 	SSicon_smooth.can_fire = TRUE

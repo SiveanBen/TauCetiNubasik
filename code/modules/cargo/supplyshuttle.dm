@@ -24,16 +24,15 @@ var/global/list/mechtoys = list(
 	anchored = TRUE
 	can_block_air = TRUE
 	layer = 4
-	explosion_resistance = 5
 
 	resistance_flags = CAN_BE_HIT
 
-/obj/structure/plasticflaps/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, caller)
-	if(istype(caller, /obj/machinery/bot/mulebot))
+/obj/structure/plasticflaps/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, origin)
+	if(istype(origin, /obj/machinery/bot/mulebot))
 		return TRUE
 
-	if(isliving(caller))
-		var/mob/living/M = caller
+	if(isliving(origin))
+		var/mob/living/M = origin
 		if(!M.ventcrawler || !M.lying)
 			return FALSE
 

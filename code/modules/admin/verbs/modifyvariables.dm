@@ -213,7 +213,7 @@
 			mod_list(L[L.Find(variable)])
 
 		if("restore to default")
-			L[L.Find(variable)]=initial(variable)
+			L[L.Find(variable)] = initial(L[variable])
 
 		if("edit referenced object")
 			modify_variables(variable)
@@ -252,6 +252,9 @@
 
 	if(is_type_in_list(O, VE_PROTECTED_TYPES))
 		to_chat(usr, "<span class='warning'>It is forbidden to edit this object's variables.</span>")
+		return
+
+	if(istype(O, /datum/controller) && !check_rights(R_DEBUG))
 		return
 
 	var/class
@@ -488,17 +491,12 @@
 						return
 					O.set_light(l_power = var_new)
 				if("dynamic_lighting")
-					if(!isarea(O) && !isturf(O))
-						to_chat(usr, "This can only be used on instances of type /area and /turf")
-						return
-					var/var_new = tgui_alert(usr, "dynamic_lighting",, list("DYNAMIC_LIGHTING_DISABLED", "DYNAMIC_LIGHTING_ENABLED", "DYNAMIC_LIGHTING_FORCED"))
+					var/var_new = tgui_alert(usr, "dynamic_lighting",, list("ENABLED", "DISABLED"))
 					switch(var_new)
-						if("DYNAMIC_LIGHTING_DISABLED")
-							var_new = DYNAMIC_LIGHTING_DISABLED
-						if("DYNAMIC_LIGHTING_ENABLED")
-							var_new = DYNAMIC_LIGHTING_ENABLED
-						if("DYNAMIC_LIGHTING_FORCED")
-							var_new = DYNAMIC_LIGHTING_FORCED
+						if("ENABLED")
+							var_new = TRUE
+						if("DISABLED")
+							var_new = FALSE
 					if(isnull(var_new))
 						return
 					var/area/A = O

@@ -34,10 +34,7 @@
 	update_icon()
 
 /obj/machinery/telescience_jammer/proc/update_affected_zone()
-
-	if(teleblocks)
-		for(var/datum/component/teleblock/jammer/COMP as anything in teleblocks)
-			qdel(COMP)
+	QDEL_LIST(teleblocks)
 
 	if(anchored)
 		var/turf/center = get_turf(src)
@@ -111,12 +108,11 @@
 		return
 	if(prob(80/severity))
 		stat |= EMPED
-		addtimer(CALLBACK(src, .proc/after_emp), 10 MINUTES / severity)
+		addtimer(CALLBACK(src, PROC_REF(after_emp)), 10 MINUTES / severity)
 
 /obj/machinery/telescience_jammer/proc/after_emp()
 	stat &= ~EMPED
 
 /obj/machinery/telescience_jammer/Destroy()
-	for(var/datum/component/teleblock/jammer/COMP as anything in teleblocks)
-		qdel(COMP)
+	QDEL_LIST(teleblocks)
 	return ..()

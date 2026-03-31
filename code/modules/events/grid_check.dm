@@ -24,13 +24,13 @@ var/global/power_fail_event = FALSE
 	var/datum/announcement/centcomm/grid_off/announcement = new
 	announcement.play()
 	if(prob(25))
-		addtimer(CALLBACK(GLOBAL_PROC, .proc/play_ambience), 600)
+		addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(play_ambience)), 600)
 
 	var/list/skipped_areas = list(/area/station/aisat/ai_chamber, /area/station/tcommsat/computer, /area/station/tcommsat/chamber)
 
 	for(var/obj/machinery/power/smes/S in smes_list)
 		var/area/current_area = get_area(S)
-		if(current_area.type in skipped_areas || !is_station_level(S.z))
+		if((current_area.type in skipped_areas) || !is_station_level(S.z))
 			continue
 		if(prob(25))
 			S.charge = rand(0, S.charge / 10)
@@ -66,7 +66,7 @@ var/global/power_fail_event = FALSE
 
 	for(var/obj/machinery/power/smes/S in smes_list)
 		var/area/current_area = get_area(S)
-		if(current_area.type in skipped_areas || !is_station_level(S.z))
+		if((current_area.type in skipped_areas) || !is_station_level(S.z))
 			continue
 		if(badminery)
 			S.charge = S.capacity

@@ -7,11 +7,10 @@
 	message_type = SHOWMSG_AUDIO
 
 	cloud = "cloud-medic"
-	state_checks = list(
-		EMOTE_STATE(is_stat, CONSCIOUS),
-		EMOTE_STATE(is_one_hand_usable),
-		EMOTE_STATE(is_not_species, ZOMBIE)
-	)
+
+	required_stat = CONSCIOUS
+	require_usable_hand = TRUE
+	blocklist_traits = list(ELEMENT_TRAIT_ZOMBIE)
 
 	// to-do: (replicators) add a sound here. the sound should be pleasant and musical
 
@@ -25,7 +24,7 @@
 			continue
 		if(get_dist(user, R) > emote_range)
 			continue
-		 if(R.ckey)
+		 if(R.is_controlled())
 		 	to_chat(R, "<span class='notice'>[HELP_LINK(R, user)]</span>")
 		 	continue
 
@@ -44,7 +43,7 @@
 	message_3p = "beeps."
 
 	message_impaired_production = "makes a weak noise."
-	message_impaired_reception = "You see a light flicker."
+	message_impaired_reception = "flickers."
 
 	message_miming = "makes robot noises."
 	message_muzzled = "makes a weak noise."
@@ -53,9 +52,7 @@
 
 	sound = 'sound/machines/twobeep.ogg'
 
-	state_checks = list(
-		EMOTE_STATE(is_stat, CONSCIOUS),
-	)
+	required_stat = CONSCIOUS
 
 	cloud = "robot0"
 

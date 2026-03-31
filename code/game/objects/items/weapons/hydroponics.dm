@@ -14,6 +14,30 @@
 	to_chat(M, "<font color='green'><b>[user]</b> smacks you with a sunflower!</font><font color='yellow'><b>FLOWER POWER</b></font>")
 	to_chat(user, "<font color='green'>Your sunflower's </font><font color='yellow'><b>FLOWER POWER</b></font><font color='green'> strikes [M]</font>")
 
+/obj/item/weapon/grown/sunflower/attackby(obj/item/I, mob/user, params)
+	if(istype(I, /obj/item/stack/cable_coil))
+		var/obj/item/stack/cable_coil/cable_piece = I
+		if(cable_piece.use(3))
+			new /obj/item/clothing/head/sunflower_crown(get_turf(loc))
+			qdel(src)
+			return
+	return ..()
+
+/obj/item/clothing/head/sunflower_crown
+	name = "sunflower crown"
+	cases = list("венок из подсолнуха", "венка из подсолнуха", "венку из подсолнуха", "венок из подсолнуха", "венком из подсолнуха", "венке из подсолнуха")
+	desc = "Яркий венок из подсолнухов, который обязательно поднимет настроение любому!"
+	icon_state = "sunflower_crown"
+
+/*
+ * Poppy
+ */
+
+/obj/item/clothing/head/poppy_crown
+	name = "poppy crown"
+	cases = list("маковый венок", "макового венка", "маковому венку", "маковый венок", "маковым венком", "маковом венке")
+	desc = "Венок из ярких красных маков."
+	icon_state = "poppy_crown"
 
 /*
  * Nettle
@@ -68,6 +92,7 @@
 		to_chat(M, "<span class='warning'>You are stunned by the powerful acid of the Deathnettle!</span>")
 
 		M.log_combat(user, "stunned with [name]")
+		SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, M)
 
 		playsound(src, 'sound/weapons/bladeslice.ogg', VOL_EFFECTS_MASTER)
 
@@ -190,19 +215,20 @@ var/global/gourd_name = null
 
 /obj/item/weapon/reagent_containers/food/snacks/grown/gourd/attackby(obj/item/I, mob/user)
 	if(I.get_quality(QUALITY_CUTTING))
-		var/turf/T = I.loc
+		var/turf/T = loc
 		if(!isturf(T))
 			T = T.loc
 		if(!isturf(T))
 			return ..()
 
-		user.drop_from_inventory(I)
+		user.drop_from_inventory(src)
 		var/obj/item/weapon/reagent_containers/food/drinks/bottle/gourd/G = new /obj/item/weapon/reagent_containers/food/drinks/bottle/gourd(T)
 		G.volume = reagents.maximum_volume * 3
 		G.reagents.maximum_volume = reagents.maximum_volume * 3
 
 		if(user.in_interaction_vicinity(G))
 			user.put_in_hands(G)
+
 		qdel(src)
 		return
 
@@ -349,5 +375,6 @@ var/global/gourd_name = null
 
 	//Attack logs
 	target.log_combat(user, "smashed with a [name] (INTENT: [uppertext(user.a_intent)])")
+	SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, target)
 
 	qdel(src)

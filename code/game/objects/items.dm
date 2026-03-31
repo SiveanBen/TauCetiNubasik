@@ -2,8 +2,7 @@
 	name = "item"
 	icon = 'icons/obj/items.dmi'
 	w_class = SIZE_SMALL
-	var/image/blood_overlay = null //this saves our blood splatter overlay, which will be processed not to go over the edges of the sprite
-	var/abstract = 0
+	var/mutable_appearance/blood_overlay = null // current blood splatter overlay
 	var/lefthand_file = 'icons/mob/inhands/items_lefthand.dmi'
 	var/righthand_file = 'icons/mob/inhands/items_righthand.dmi'
 	var/r_speed = 1.0
@@ -26,14 +25,19 @@
 	var/max_heat_protection_temperature //Set this variable to determine up to which temperature (IN KELVIN) the item protects against heat damage. Keep at null to disable protection. Only protects areas set by heat_protection flags
 	var/min_cold_protection_temperature //Set this variable to determine down to which temperature (IN KELVIN) the item protects against cold damage. 0 is NOT an acceptable number due to if(varname) tests!! Keep at null to disable protection. Only protects areas set by cold_protection flags
 
-	var/datum/action/item_action/action = null
-	var/action_button_name //It is also the text which gets displayed on the action button. If not set it defaults to 'Use [name]'. If it's not set, there'll be no button.
-	var/action_button_is_hands_free = 0 //If 1, bypass the restrained, lying, and stunned checks action buttons normally test for
+	///Actions that item spawns on atom_init(), paths
+	var/list/item_action_types = list()
+	///Spawned actions, datums
+	var/list/item_actions = list()
+	///Add actions on equip(), otherwise we have a special behavior
+	var/item_actions_special = FALSE
 
 	var/slot_equipped = 0 // Where this item currently equipped in player inventory (slot_id) (should not be manually edited ever).
 
 	//Since any item can now be a piece of clothing, this has to be put here so all items share it.
-	var/flags_inv //This flag is used to determine when items in someone's inventory cover others. IE helmets making it so you can't see glasses, etc.
+	var/flags_inv //This flag is used to determine when items in someone's inventory cover others. IE helmets making it so you can't see glasses, etc. Do not mistake it with render_flags, while flags_inv affects other items accessibility, render_flags affects render. Helmet can have transparent visor so we still need to render face.
+	var/render_flags = 0
+
 	var/body_parts_covered = 0 //see setup.dm for appropriate bit flags
 	var/pierce_protection = 0
 	//var/heat_transfer_coefficient = 1 //0 prevents all transfers, 1 is invisible
@@ -60,9 +64,13 @@
 	var/toolspeed = 1
 	var/obj/item/device/uplink/hidden/hidden_uplink = null // All items can have an uplink hidden inside, just remember to add the triggers.
 
-	var/item_state = null         // has priority over icon_state for on-mob sprites
-	var/item_state_world = null   // has priority over icon_state for world (not in inventory) sprites
-	var/icon_override = null      // Used to override hardcoded clothing dmis in human clothing proc (see also icon_custom)
+	// optional world/inventory icon_state overrides
+	var/item_state_world = null      // has priority over icon_state for item world (not in inventory) sprites
+	var/item_state_inventory = null  // has priority over icon_state for item inventory sprites, defaults to initial(icon_state)
+
+	// other icon overrides
+	var/item_state = null            // has priority over icon_state for on-mob sprites
+	var/icon_override = null         // Used to override hardcoded clothing dmis in human clothing proc (see also icon_custom)
 
 	/* Species-specific sprite sheets for inventory sprites
 	Works similarly to worn sprite_sheets, except the alternate sprites are used when the clothing/refit_for_species() proc is called.
@@ -87,8 +95,13 @@
 
 	var/dyed_type
 
+	var/flash_protection = NONE
+	var/list/flash_protection_slots = list()
 	var/can_get_wet = TRUE
 
+/**
+  * Doesn't call parent, see [/atom/proc/atom_init]
+  */
 /obj/item/atom_init()
 	SHOULD_CALL_PARENT(FALSE)
 	if(initialized)
@@ -98,17 +111,29 @@
 	if(light_power && light_range)
 		update_light()
 
-	if(opacity && isturf(src.loc))
-		var/turf/T = src.loc
+	if(opacity && isturf(loc))
+		var/turf/T = loc
 		T.has_opaque_atom = TRUE // No need to recalculate it in this case, it's guaranteed to be on afterwards anyways.
+
+	if(can_block_air && isturf(loc))
+		var/turf/T = loc
+		if(!T.can_block_air)
+			T.can_block_air = TRUE
 
 	if(uses_integrity)
 		if (!armor)
 			armor = list()
 		atom_integrity = max_integrity
 
+	if(istype(loc, /obj/item/weapon/storage)) // todo: need to catch all spawns in /storage/ objects and make them use handle_item_insertion or forceMove, so we can remove this
+		flags_2 |= IN_STORAGE
+
 	if(item_state_world)
 		update_world_icon()
+
+	for(var/path in item_action_types)
+		var/datum/action/B = new path (src)
+		item_actions += B
 
 	return INITIALIZE_HINT_NORMAL
 
@@ -122,7 +147,7 @@
 	icon = 'icons/obj/device.dmi'
 
 /obj/item/Destroy()
-	QDEL_NULL(action)
+	QDEL_LIST(item_actions)
 	flags &= ~DROPDEL // prevent recursive dels
 	if(ismob(loc))
 		var/mob/m = loc
@@ -141,6 +166,22 @@
 
 /obj/item/blob_act()
 	return
+
+///Updates all icons of action buttons associated with this item
+/obj/item/proc/update_item_actions()
+	for(var/datum/action/A as anything in item_actions)
+		A.button.UpdateIcon()
+
+///Adds action buttons to user associated with this item
+/obj/item/proc/add_item_actions(mob/user)
+	for(var/datum/action/A in item_actions)
+		A.Grant(user)
+
+///Removes all action buttons from user associated with this item
+/obj/item/proc/remove_item_actions(mob/user)
+	for(var/datum/action/A in item_actions)
+		if(A.CheckRemoval(user))
+			A.Remove(user)
 
 //user: The mob that is suiciding
 //damagetype: The type of damage the item will inflict on the user
@@ -326,7 +367,7 @@
 	return ..()
 
 /obj/item/throw_at(atom/target, range, speed, mob/thrower, spin = TRUE, diagonals_first = FALSE, datum/callback/callback)
-	callback = CALLBACK(src, .proc/after_throw, callback) // Replace their callback with our own.
+	callback = CALLBACK(src, PROC_REF(after_throw), callback) // Replace their callback with our own.
 	. = ..(target, range, speed, thrower, spin, diagonals_first, callback)
 
 /obj/item/proc/after_throw(datum/callback/callback)
@@ -352,6 +393,8 @@
 		qdel(src)
 	update_world_icon()
 	set_alt_apperances_layers()
+	if(!item_actions_special)
+		remove_item_actions(user)
 
 // called just as an item is picked up (loc is not yet changed)
 /obj/item/proc/pickup(mob/user)
@@ -363,12 +406,14 @@
 
 // called when this item is removed from a storage item, which is passed on as S. The loc variable is already set to the new destination before this is called.
 /obj/item/proc/on_exit_storage(obj/item/weapon/storage/S)
+	SHOULD_CALL_PARENT(TRUE)
 	flags_2 &= ~IN_STORAGE
 	update_world_icon()
 	return
 
 // called when this item is added into a storage item, which is passed on as S. The loc variable is already set to the storage item.
 /obj/item/proc/on_enter_storage(obj/item/weapon/storage/S)
+	SHOULD_CALL_PARENT(TRUE)
 	flags_2 |= IN_STORAGE
 	update_world_icon()
 	return
@@ -389,6 +434,8 @@
 	SEND_SIGNAL(user, COMSIG_MOB_EQUIPPED, src, slot)
 	update_world_icon()
 	set_alt_apperances_layers()
+	if(!item_actions_special)
+		add_item_actions(user)
 
 //the mob M is attempting to equip this item into the slot passed through as 'slot'. Return 1 if it can do this and 0 if it can't.
 //If you are making custom procs but would like to retain partial or complete functionality of this one, include a 'return ..()' to where you want this to happen.
@@ -431,6 +478,12 @@
 				if( !(slot_flags & SLOT_FLAGS_MASK) )
 					return 0
 				return 1
+			if(SLOT_NECK)
+				if(H.neck)
+					return FALSE
+				if(!(slot_flags & SLOT_FLAGS_NECK) )
+					return FALSE
+				return TRUE
 			if(SLOT_BACK)
 				if(H.back)
 					return 0
@@ -458,7 +511,7 @@
 			if(SLOT_BELT)
 				if(H.belt)
 					return 0
-				if(!H.w_uniform)
+				if(!H.w_uniform && !H.species.flags[IS_SYNTHETIC])
 					if(!disable_warning)
 						to_chat(H, "<span class='warning'>You need a jumpsuit before you can attach this [name].</span>")
 					return 0
@@ -506,7 +559,7 @@
 			if(SLOT_WEAR_ID)
 				if(H.wear_id)
 					return 0
-				if(!H.w_uniform)
+				if(!H.w_uniform && !H.species.flags[IS_SYNTHETIC])
 					if(!disable_warning)
 						to_chat(H, "<span class='warning'>You need a jumpsuit before you can attach this [name].</span>")
 					return 0
@@ -569,7 +622,7 @@
 						return 1
 				return 0
 			if(SLOT_TIE)
-				if(!H.w_uniform)
+				if(!H.w_uniform && !H.species.flags[IS_SYNTHETIC])
 					if(!disable_warning)
 						to_chat(H, "<span class='warning'>You need a jumpsuit before you can attach this [name].</span>")
 					return FALSE
@@ -632,7 +685,7 @@
 				if(C.mouth)
 					return FALSE
 				return TRUE
-			if(SLOT_NECK)
+			if(SLOT_IAN_NECK)
 				if(C.neck)
 					return FALSE
 				if(istype(src, /obj/item/weapon/handcuffs))
@@ -678,7 +731,7 @@
 	usr.UnarmedAttack(src)
 	return
 
-/obj/item/proc/use_tool(atom/target, mob/living/user, delay, amount = 0, volume = 0, quality = null, datum/callback/extra_checks = null, required_skills_override = null, skills_speed_bonus = -0.4, can_move = FALSE)
+/obj/item/proc/use_tool(atom/target, mob/living/user, delay, amount = 0, volume = 0, quality = null, datum/callback/extra_checks = null, required_skills_override = null, skills_speed_bonus = -0.4, can_move = FALSE, particle_type = null)
 	// No delay means there is no start message, and no reason to call tool_start_check before use_tool.
 	// Run the start check here so we wouldn't have to call it manually.
 	if(user.is_busy())
@@ -709,16 +762,22 @@
 	// Play tool sound at the beginning of tool usage.
 	play_tool_sound(target, volume)
 
+	var/particle_use_type = /particles/tool/generic
+	if(particle_type)
+		particle_use_type = particle_type
+	else if(!isnull(quality))
+		particle_use_type = target.particles_by_quality[quality]
+
 	if(delay)
 		// Create a callback with checks that would be called every tick by do_after.
-		var/datum/callback/tool_check = CALLBACK(src, .proc/tool_check_callback, user, amount, extra_checks)
+		var/datum/callback/tool_check = CALLBACK(src, PROC_REF(tool_check_callback), user, amount, extra_checks, target)
 
 		if(ismob(target))
 			if(!do_mob(user, target, delay, extra_checks = tool_check))
 				return
 
 		else
-			if(!do_after(user, delay, target=target, can_move = can_move, extra_checks = tool_check))
+			if(!do_after(user, delay, target=target, can_move = can_move, extra_checks = tool_check, particle_type = particle_use_type))
 				return
 	else
 		// Invoke the extra checks once, just in case.
@@ -726,7 +785,7 @@
 			return
 
 	// Use tool's fuel, stack sheets or charges if amount is set.
-	if(amount && !use(amount))
+	if(amount && !use(amount, user))
 		return
 
 	// Play tool sound at the end of tool usage,
@@ -761,14 +820,8 @@
 	return !used
 
 // Used in a callback that is passed by use_tool into do_after call. Do not override, do not call manually.
-/obj/item/proc/tool_check_callback(mob/living/user, amount, datum/callback/extra_checks)
-	return tool_use_check(user, amount) && (!extra_checks || extra_checks.Invoke())
-
-//This proc is executed when someone clicks the on-screen UI button. To make the UI button show, set the 'icon_action_button' to the icon_state of the image of the button in screen1_action.dmi
-//The default action is attack_self().
-//Checks before we get to here are: mob is alive, mob is not restrained, paralyzed, asleep, resting, laying, item is on the mob.
-/obj/item/proc/ui_action_click()
-	attack_self(usr)
+/obj/item/proc/tool_check_callback(mob/living/user, amount, datum/callback/extra_checks, target)
+	return tool_use_check(user, amount, target) && (!extra_checks || extra_checks.Invoke())
 
 /obj/item/proc/IsReflect(def_zone, hol_dir, hit_dir) //This proc determines if and at what% an object will reflect energy projectiles if it's in l_hand,r_hand or wear_suit
 	return FALSE
@@ -807,24 +860,31 @@
 	playsound(M, 'sound/items/tools/screwdriver-stab.ogg', VOL_EFFECTS_MASTER)
 
 	M.log_combat(user, "eyestabbed with [name]")
+	SEND_SIGNAL(user, COMSIG_HUMAN_HARMED_OTHER, M)
 
 	add_fingerprint(user)
-	if(M != user)
-		visible_message("<span class='warning'>[M] has been stabbed in the eye with [src] by [user].</span>", ignored_mobs = list(user, M))
-		to_chat(M, "<span class='warning'>[user] stabs you in the eye with [src]!</span>")
-		to_chat(user, "<span class='warning'>You stab [M] in the eye with [src]!</span>")
-	else
-		user.visible_message( \
-			"<span class='warning'>[user] has stabbed themself with [src]!</span>", \
-			"<span class='warning'>You stab yourself in the eyes with [src]!</span>" \
-		)
+
 	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		var/obj/item/organ/internal/eyes/IO = H.organs_by_name[O_EYES]
+		if(!IO)
+			visible_message("<span class='warning'>[user] tried to stab [M] in the eyes with [src].</span>", ignored_mobs = list(user, M))
+			to_chat(M, "<span class='warning'>[user] tries to stab you in the eye with [src]!</span>")
+			to_chat(user, "<span class='warning'>You try to stab [M] in the eye with [src]!</span>")
+			return
 		IO.damage += rand(force * 0.5, force)
+		if(M != user)
+			visible_message("<span class='warning'>[M] has been stabbed in the eye with [src] by [user].</span>", ignored_mobs = list(user, M))
+			to_chat(M, "<span class='warning'>[user] stabs you in the eye with [src]!</span>")
+			to_chat(user, "<span class='warning'>You stab [M] in the eye with [src]!</span>")
+		else
+			user.visible_message( \
+				"<span class='warning'>[user] has stabbed themself with [src]!</span>", \
+				"<span class='warning'>You stab yourself in the eyes with [src]!</span>" \
+			)
 		if(IO.damage >= IO.min_bruised_damage)
 			if(H.stat != DEAD)
-				if(IO.robotic <= 1) //robot eyes bleeding might be a bit silly
+				if(!IO.is_robotic()) //robot eyes bleeding might be a bit silly
 					to_chat(H, "<span class='warning'>Your eyes start to bleed profusely!</span>")
 			if(prob(10 * force))
 				if(H.stat != DEAD)
@@ -853,7 +913,7 @@
 		blood_overlay = null
 	if(istype(src, /obj/item/clothing/gloves))
 		var/obj/item/clothing/gloves/G = src
-		G.transfer_blood = 0
+		G.dirt_transfers = 0
 	update_inv_mob()
 
 /obj/item/add_dirt_cover()
@@ -862,8 +922,9 @@
 		return
 	if(blood_overlay && blood_overlay.color == dirt_overlay.color)
 		return
-	generate_blood_overlay()
 	cut_overlay(blood_overlay)
+	blood_overlay = mutable_appearance('icons/effects/blood.dmi', "itemblood") // maybe need to move it to upper layer
+	blood_overlay.blend_mode = BLEND_INSET_OVERLAY
 	blood_overlay.color = dirt_overlay.color
 	add_overlay(blood_overlay)
 	update_inv_mob()
@@ -878,31 +939,15 @@
 	update_inv_mob() // if item on mob, update mob's icon too.
 	return 1 //we applied blood to the item
 
-/obj/item/proc/generate_blood_overlay()
-	var/static/list/items_blood_overlay_by_type = list()
-
-	if(blood_overlay)
-		return
-
-	if(items_blood_overlay_by_type[type])
-		blood_overlay = items_blood_overlay_by_type[type]
-		return
-
-	var/image/blood = image(icon = 'icons/effects/blood.dmi', icon_state = "itemblood") // Needs to be a new one each time since we're slicing it up with filters.
-	blood.filters += filter(type = "alpha", icon = icon(icon, icon_state)) // Same, this filter is unique for each blood overlay per type
-	items_blood_overlay_by_type[type] = blood
-
-	blood_overlay = blood
-
 /obj/item/proc/showoff(mob/user)
-	user.visible_message("[user] holds up [src]. <a HREF=?_src_=usr;lookitem=\ref[src]>Take a closer look.</a>")
+	user.visible_message("[user] holds up [src]. <a href=byond://?_src_=usr;lookitem=\ref[src]>Take a closer look.</a>")
 
 /mob/living/carbon/verb/showoff()
 	set name = "Show Held Item"
 	set category = "Object"
 
 	var/obj/item/I = get_active_hand()
-	if(I && !I.abstract)
+	if(I && !(I.flags & ABSTRACT))
 		I.showoff(src)
 
 /obj/item/proc/extinguish()
@@ -1035,11 +1080,10 @@
 	if(!item_state_world)
 		return
 
-	if((flags_2 & IN_INVENTORY || flags_2 & IN_STORAGE) && icon_state == item_state_world)
+	if(flags_2 & IN_INVENTORY || flags_2 & IN_STORAGE)
 		// moving to inventory, restore icon (big inventory icon)
-		icon_state = initial(icon_state)
-
-	else if(icon_state != item_state_world)
+		icon_state = item_state_inventory ? item_state_inventory : initial(icon_state)
+	else
 		// moving to world, change icon (small world icon)
 		icon_state = item_state_world
 
@@ -1047,3 +1091,18 @@
 	. = ..()
 	var/mob/living/carbon/human/H = user
 	SEND_SIGNAL(H, COMSIG_CLICK_CTRL_SHIFT, src)
+
+/obj/item/try_wrap_up(texture_name = "cardboard", details_name = null)
+	var/size = round(w_class)
+	if(size < SIZE_MINUSCULE || size > SIZE_BIG)
+		return null
+
+	var/obj/item/smallDelivery/P = new /obj/item/smallDelivery(get_turf(loc))	//Aaannd wrap it up!
+	P.w_class = w_class
+	P.icon_state = "deliverycrate[size]"
+
+	P.add_texture(texture_name, details_name)
+
+	forceMove(P)
+
+	return P

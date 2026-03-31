@@ -33,7 +33,7 @@
 		return !density
 	return TRUE
 
-/obj/structure/stool/bed/chair/pew/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, caller)
+/obj/structure/stool/bed/chair/pew/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, origin)
 	if(!density)
 		return TRUE
 	if(is_the_opposite_dir(dir, to_dir))
@@ -92,7 +92,7 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 /obj/effect/effect/bell/atom_init(mapload, obj/structure/big_bell/BB)
 	. = ..()
 	base = BB
-	AddComponent(/datum/component/bounded, BB, 0, 0, null, FALSE)
+	AddComponent(/datum/component/bounded, BB, 0, 0, null, null, FALSE)
 
 /obj/effect/effect/bell/Destroy()
 	if(!QDELING(base))
@@ -201,7 +201,7 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 
 	stun_insides(1)
 
-	INVOKE_ASYNC(src, .proc/swing, swing_angle, 2 SECONDS, 2)
+	INVOKE_ASYNC(src, PROC_REF(swing), swing_angle, 2 SECONDS, 2)
 
 /obj/effect/effect/bell/proc/announce_global(text, strength)
 	for(var/mob/M in player_list)
@@ -214,7 +214,7 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 
 	stun_insides(2)
 
-	INVOKE_ASYNC(src, .proc/swing, swing_angle, 9 SECONDS, 6)
+	INVOKE_ASYNC(src, PROC_REF(swing), swing_angle, 9 SECONDS, 6)
 
 /obj/effect/effect/bell/proc/ring_global(mob/user, strength)
 	if(!user.mind || !user.mind.holy_role)
@@ -293,7 +293,7 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 	return ..()
 
 /obj/structure/big_bell/attackby(obj/item/I, mob/user)
-	if(iswrenching(I) && !user.is_busy(src) && I.use_tool(src, user, 40, volume = 50))
+	if(iswrenching(I) && !user.is_busy(src) && I.use_tool(src, user, 40, volume = 50, quality = QUALITY_WRENCHING))
 		anchored = !anchored
 		visible_message("<span class='warning'>[src] has been [anchored ? "secured to the floor" : "unsecured from the floor"] by [user].</span>")
 		playsound(src, 'sound/items/Deconstruct.ogg', VOL_EFFECTS_MASTER)
@@ -304,8 +304,8 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 /obj/structure/big_bell/CanPass(atom/movable/mover, turf/target, height=0)
 	return istype(mover) && mover.checkpass(PASSCRAWL)
 
-/obj/structure/big_bell/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, atom/movable/caller)
-	return istype(caller) && caller.checkpass(PASSCRAWL)
+/obj/structure/big_bell/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, atom/movable/origin)
+	return istype(origin) && origin.checkpass(PASSCRAWL)
 
 /obj/structure/big_bell/CheckExit(atom/movable/mover, target)
 	return istype(mover) && mover.checkpass(PASSCRAWL)
@@ -339,9 +339,9 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 
 	var/obj/item/weapon/storage/internal/book
 
-	var/image/lectern_overlay
-	var/image/book_overlay
-	var/image/emblem_overlay
+	var/mutable_appearance/lectern_overlay
+	var/mutable_appearance/book_overlay
+	var/mutable_appearance/emblem_overlay
 
 /obj/structure/stool/bed/chair/lectern/atom_init()
 	. = ..()
@@ -356,16 +356,16 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 		/obj/item/weapon/storage/bible,
 	)
 
-	RegisterSignal(book, list(COMSIG_STORAGE_ENTERED), .proc/add_book)
-	RegisterSignal(book, list(COMSIG_STORAGE_EXITED), .proc/remove_book)
+	RegisterSignal(book, list(COMSIG_STORAGE_ENTERED), PROC_REF(add_book))
+	RegisterSignal(book, list(COMSIG_STORAGE_EXITED), PROC_REF(remove_book))
 
-	lectern_overlay = image(icon, "lectern_overlay")
+	lectern_overlay = mutable_appearance(icon, "lectern_overlay")
 	lectern_overlay.layer = INFRONT_MOB_LAYER
 
-	book_overlay = image(icon, "book")
+	book_overlay = mutable_appearance(icon, "book")
 	book_overlay.layer = INFRONT_MOB_LAYER
 
-	emblem_overlay = image(icon, "general")
+	emblem_overlay = mutable_appearance(icon, "general")
 	emblem_overlay.layer = INFRONT_MOB_LAYER
 	lectern_overlay.add_overlay(emblem_overlay)
 	add_overlay(emblem_overlay)
@@ -573,7 +573,7 @@ ADD_TO_GLOBAL_LIST(/obj/effect/effect/bell, bells)
 
 	return get_dir(target, loc) & dir
 
-/obj/structure/stool/bed/chair/lectern/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, caller)
+/obj/structure/stool/bed/chair/lectern/CanAStarPass(obj/item/weapon/card/id/ID, to_dir, origin)
 	if(!density)
 		return TRUE
 

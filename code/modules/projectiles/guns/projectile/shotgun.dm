@@ -13,6 +13,7 @@
 	fire_sound = 'sound/weapons/guns/gunshot_shotgun.ogg'
 	can_be_holstered = FALSE
 	two_hand_weapon = ONLY_TWOHAND
+	recoil = MEDIUM_RECOIL
 	var/pump_cooldown = 10
 	var/pump_sound = list('sound/weapons/guns/shotgun_pump1.ogg', 'sound/weapons/guns/shotgun_pump2.ogg', 'sound/weapons/guns/shotgun_pump3.ogg')
 
@@ -137,7 +138,7 @@
 		var/num_unloaded = 0
 		while (get_ammo() > 0)
 			spawn(3)
-				addtimer(CALLBACK(GLOBAL_PROC, .proc/playsound, loc, 'sound/weapons/guns/shell_drop.ogg', 50, 1), 3)
+				addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(playsound), loc, 'sound/weapons/guns/shell_drop.ogg', 50, 1), 3)
 			var/obj/item/ammo_casing/CB
 			CB = magazine.get_round(FALSE)
 			chambered = null

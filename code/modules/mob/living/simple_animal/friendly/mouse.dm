@@ -1,15 +1,15 @@
 /mob/living/simple_animal/mouse
 	name = "mouse"
 	real_name = "mouse"
-	desc = "It's a small, disease-ridden rodent."
+	desc = "Это маленький, поражённый болезнями грызун."
 	icon_state = "mouse_gray"
 	icon_living = "mouse_gray"
 	icon_dead = "mouse_gray_dead"
 	icon_move = "mouse_gray_move"
-	speak = list("Squeek!","SQUEEK!","Squeek?")
-	speak_emote = list("squeeks","squeeks","squiks")
-	emote_hear = list("squeeks","squeaks","squiks")
-	emote_see = list("runs in a circle", "shakes", "scritches at something")
+	speak = list("Пии!","ПИИ!","Пии?")
+	speak_emote = list("пищит")
+	emote_hear = list("пищит")
+	emote_see = list("бегает вокруг","чешется")
 	pass_flags = PASSTABLE | PASSMOB
 	w_class = SIZE_MINUSCULE
 	speak_chance = 1
@@ -18,6 +18,7 @@
 	see_in_dark = 6
 	maxHealth = 15
 	health = 15
+	nutrition = NUTRITION_LEVEL_STARVING
 	butcher_results = list(/obj/item/weapon/reagent_containers/food/snacks/meat = 1)
 	response_help  = "pets the"
 	response_disarm = "gently pushes aside the"
@@ -60,6 +61,8 @@
 			wander = TRUE
 		else if(prob(5))
 			emote("snuffles")
+	if(nutrition > 0 && prob(10))
+		nutrition -= 1
 
 /mob/living/simple_animal/mouse/atom_init()
 	. = ..()
@@ -82,16 +85,13 @@
 	icon_living = "mouse_[body_color]"
 	icon_dead = "mouse_[body_color]_dead"
 	icon_move = "mouse_[body_color]_move"
-	desc = "It's a small [body_color] rodent, often seen hiding in maintenance areas and making a nuisance of itself."
+	desc = "Это маленький, поражённый болезнями грызун."
 
 /mob/living/simple_animal/mouse/proc/splat()
-	health = 0
-	stat = DEAD
+	death()
 	if(changes_color)
 		icon_dead = "mouse_[body_color]_splat"
 		icon_state = "mouse_[body_color]_splat"
-	layer = MOB_LAYER
-	timeofdeath = world.time
 
 /mob/living/simple_animal/mouse/MouseDrop(atom/over_object)
 
@@ -195,7 +195,7 @@
 ADD_TO_GLOBAL_LIST(/mob/living/simple_animal/mouse/brown/Tom, chief_animal_list)
 /mob/living/simple_animal/mouse/brown/Tom
 	name = "Tom"
-	desc = "Jerry the cat is not amused."
+	desc = "Он не нравится коту Джерри..."
 	response_help  = "pets"
 	response_disarm = "gently pushes aside"
 	response_harm   = "splats"
@@ -209,7 +209,7 @@ ADD_TO_GLOBAL_LIST(/mob/living/simple_animal/mouse/brown/Tom, chief_animal_list)
 	icon_living = "rat"
 	icon_dead = "rat_dead"
 	icon_move = "rat"
-	desc = "It's a big pest mouse."
+	desc = "Это большая вредная мышь."
 	maxHealth = 50
 	health = 50
 	changes_color = FALSE
@@ -219,3 +219,29 @@ ADD_TO_GLOBAL_LIST(/mob/living/simple_animal/mouse/brown/Tom, chief_animal_list)
 /mob/living/simple_animal/mouse/rat/atom_init()
 	. = ..()
 	AddComponent(/datum/component/gnawing)
+
+/mob/living/simple_animal/mouse/nuke
+	name = "nuclear mousperative"
+	desc = "Syndicate's failed experiment. Some mad scientist tried to modify murine cheese craving to nuclear desire. Sadly, these rodents proved to be too small and stupid to properly insert the disk into a bomb."
+	icon_state = "mouse_nuke"
+	icon_living = "mouse_nuke"
+	icon_move = "mouse_nuke_move"
+	body_color = "nuke"
+	holder_type = /obj/item/weapon/holder/mouse/nuke
+
+	changes_color = FALSE
+
+	min_oxy = 0
+	max_tox = 0
+	max_co2 = 0
+	minbodytemp = 0
+	maxbodytemp = 500
+	melee_damage = 1
+	maxHealth = 30
+	health = 30
+	speak = list("Beep!","BEEP!","Beep?")
+
+/mob/living/simple_animal/mouse/nuke/death()
+	..()
+	new /obj/effect/gibspawner/generic(loc)
+	qdel(src)

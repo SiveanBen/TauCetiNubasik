@@ -112,6 +112,8 @@ Class Procs:
 	damage_deflection = 15
 	resistance_flags = CAN_BE_HIT
 
+	hit_particle_type = /particles/tool/digging/metal
+
 	var/icon_state_active = 0
 	var/stat = 0
 	var/emagged = 0 // Can be 0, 1 or 2
@@ -170,15 +172,18 @@ Class Procs:
 	set_power_use(NO_POWER_USE)
 	machines -= src
 
+	stop_processing()
+
+	dropContents()
+	return ..()
+
+/obj/machinery/proc/stop_processing()
 	if (speed_process)
 		STOP_PROCESSING(SSfastprocess, src)
 	else if (process_last)
 		STOP_PROCESSING_NAMED(SSmachines, src, processing_second)
 	else
 		STOP_PROCESSING(SSmachines, src)
-
-	dropContents()
-	return ..()
 
 /obj/machinery/proc/set_frequency(new_frequency)
 	radio_controller.remove_object(src, frequency)
@@ -229,15 +234,12 @@ Class Procs:
 				continue
 			else
 				target = C
-	if(target && !target.buckled)
+	if(target && !target.buckled && Adjacent(target))
 		if(target.client)
 			target.client.perspective = EYE_PERSPECTIVE
 			target.client.eye = src
 		occupant = target
-		target.loc = src
-		target.stop_pulling()
-		if(target.pulledby)
-			target.pulledby.stop_pulling()
+		target.forceMove(src, keep_grabs = FALSE)
 	updateUsrDialog()
 	update_icon()
 
@@ -290,15 +292,37 @@ Class Procs:
 
 /**
  * Can this particular `user` interact with the machine?
- * Calls `is_operational()` first.
- * If you're going to override it, in most cases don't forget: `. = ..()`
+ * Does not check access or distance
  */
 /obj/machinery/proc/can_interact_with(mob/user)
+	SHOULD_CALL_PARENT(TRUE)
+
+	if(user.incapacitated())
+		return FALSE
+	if(!(ishuman(user) || issilicon(user) || ismonkey(user) || isxenoqueen(user) || IsAdminGhost(user))) //can we just swap it for IsAdvancedToolUser
+		to_chat(user, "<span class='warning'>You don't have the dexterity to do this!</span>")
+		return FALSE
 	if(!is_operational() && !interact_offline)
 		return FALSE
 	if(panel_open && !interact_open)
 		return FALSE
-	if(!can_mob_interact(user))
+	if(user.interact_prob_brain_damage(src))
+		return FALSE
+
+	return TRUE
+
+/**
+ * Any input()/alert() pause proc, so sometimes we need to check after if user still around and can interact
+ * For topics and tgui_act
+ * todo: we need atom analogues for attack_hand/attackby/topic/etc.
+ */
+/obj/machinery/proc/can_still_interact_with(mob/user)
+	// in the future we maybe need to add or change to TGUI can_use_topic, should be fine now
+	if(usr.can_use_topic(src) != STATUS_INTERACTIVE || !can_interact_with(user))
+		usr.unset_machine(src)
+		return FALSE
+	if((allowed_checks & ALLOWED_CHECK_TOPIC) && !allowed(user))
+		allowed_fail(user)
 		return FALSE
 
 	return TRUE
@@ -334,6 +358,10 @@ Class Procs:
 /obj/machinery/tgui_act(action, list/params, datum/tgui/ui, datum/tgui_state/state)
 	if(..())
 		return TRUE
+
+	if(!can_interact_with(usr))
+		return
+
 	usr.set_machine(src)
 	add_fingerprint(usr)
 
@@ -383,13 +411,9 @@ Class Procs:
 
 // set_machine must be 0 if clicking the machinery doesn't bring up a dialog
 /obj/machinery/attack_hand(mob/user)
-	if((user.lying || user.stat != CONSCIOUS) && !IsAdminGhost(user))
-		return TRUE
-	if(!(ishuman(user) || issilicon(user) || ismonkey(user) || isxenoqueen(user) || IsAdminGhost(user)))
-		to_chat(user, "<span class='warning'>You don't have the dexterity to do this!</span>")
-		return TRUE
 	if(!can_interact_with(user))
 		return TRUE
+	add_fingerprint(user)
 	if(HAS_TRAIT_FROM(user, TRAIT_GREASY_FINGERS, QUALITY_TRAIT))
 		if(prob(75))
 			to_chat(user, "<span class='notice'>Your fingers are slipping.</span>")
@@ -415,8 +439,41 @@ Class Procs:
 	..()
 	RefreshParts()
 
-/obj/machinery/proc/RefreshParts() //Placeholder proc for machines that are built using frames.
-	return
+/obj/machinery/proc/RefreshParts()
+	SHOULD_CALL_PARENT(TRUE)
+
+	var/caprat = 0
+	var/binrat = 0
+
+	var/manrat = 0
+	var/lasrat = 0
+	var/scanrat = 0
+
+	for(var/obj/item/weapon/stock_parts/capacitor/C in component_parts)
+		caprat += C.rating
+	for(var/obj/item/weapon/stock_parts/matter_bin/C in component_parts)
+		binrat += C.rating
+
+	for(var/obj/item/weapon/stock_parts/manipulator/C in component_parts)
+		manrat += C.rating
+	for(var/obj/item/weapon/stock_parts/micro_laser/C in component_parts)
+		lasrat += C.rating
+	for(var/obj/item/weapon/stock_parts/scanning_module/C in component_parts)
+		scanrat += C.rating
+
+	idle_power_usage = initial(idle_power_usage)
+	if(caprat)
+		idle_power_usage *= caprat * CAPACITOR_POWER_MULTIPLIER
+	if(binrat)
+		idle_power_usage *= binrat * MATTERBIN_POWER_MULTIPLIER
+
+	active_power_usage = initial(active_power_usage)
+	if(manrat)
+		active_power_usage *= manrat * MANIPULATOR_POWER_MULTIPLIER
+	if(lasrat)
+		active_power_usage *= lasrat * LASER_POWER_MULTIPLIER
+	if(scanrat)
+		active_power_usage *= scanrat * SCANER_POWER_MULTIPLIER
 
 /obj/machinery/proc/assign_uid()
 	uid = gl_uid
@@ -468,7 +525,7 @@ Class Procs:
 	if(iswrenching(I) &&  !(flags & NODECONSTRUCT))
 		if(user.is_busy()) return
 		to_chat(user, "<span class='notice'>You begin [anchored ? "un" : ""]securing [name]...</span>")
-		if(I.use_tool(src, user, time, volume = 50, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_NOVICE)))
+		if(I.use_tool(src, user, time, volume = 50, quality = QUALITY_WRENCHING, required_skills_override = list(/datum/skill/engineering = SKILL_LEVEL_NOVICE)))
 			to_chat(user, "<span class='notice'>You [anchored ? "un" : ""]secure [name].</span>")
 			anchored = !anchored
 			playsound(src, 'sound/items/Deconstruct.ogg', VOL_EFFECTS_MASTER)

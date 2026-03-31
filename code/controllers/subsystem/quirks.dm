@@ -25,7 +25,8 @@ SUBSYSTEM_DEF(quirks)
 		list(QUIRK_LIGHT_DRINKER, QUIRK_ALCOHOL_TOLERANCE),
 		list(QUIRK_STRONG_MIND, QUIRK_TOURETTE),
 		list(QUIRK_BLIND, QUIRK_NEARSIGHTED),
-		list(QUIRK_LOW_PAIN_THRESHOLD, QUIRK_HIGH_PAIN_THRESHOLD)
+		list(QUIRK_LOW_PAIN_THRESHOLD, QUIRK_HIGH_PAIN_THRESHOLD),
+		list(QUIRK_FRAGILE_BONES, QUIRK_ADAMANTIUM_SKELETON)
 		)
 
 	..()
@@ -50,14 +51,14 @@ SUBSYSTEM_DEF(quirks)
 		if(QDELETED(thing))
 			processing -= thing
 		else
-			thing.process()
+			thing.process(wait * 0.1)
 
 		if (MC_TICK_CHECK)
 			return
 
 /datum/controller/subsystem/quirks/proc/SetupQuirks()
 	// Sort by Positive, Negative, Neutral; and then by name
-	var/list/quirk_list = sortList(subtypesof(/datum/quirk), /proc/cmp_quirk_asc)
+	var/list/quirk_list = sortList(subtypesof(/datum/quirk), GLOBAL_PROC_REF(cmp_quirk_asc))
 
 	for(var/quirk_type in quirk_list)
 		var/datum/quirk/T = new quirk_type
